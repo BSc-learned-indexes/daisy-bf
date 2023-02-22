@@ -34,3 +34,8 @@
 
 # Build directory
 build/
+
+
+
+# clean data 
+*.jsonl

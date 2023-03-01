@@ -1,0 +1,60 @@
+╰─ python3 PLBF.py --data_path ./data/exported_urls.csv  --size_of_PLBF 10000 --model_path ./data/pickle_model.sav --num_group_min 1 --num_group_max 10
+/home/hotdog2c/Desktop/Ada-BF/PLBF.py:66: MatplotlibDeprecationWarning: The seaborn styles shipped by Matplotlib are deprecated since 3.6, as they no longer correspond to the styles shipped by seaborn. However, they will remain available as 'seaborn-v0_8-<style>'. Alternatively, directly use the seaborn API instead.
+  plt.style.use('seaborn-deep')
+False positive items: 41488, FPR: 1.0 Number of groups: 1
+False positive items: 436.0, FPR: 0.010509062861550327 Number of groups: 2
+False positive items: 406.0, FPR: 0.009785962205939067 Number of groups: 3
+False positive items: 420.0, FPR: 0.010123409178557655 Number of groups: 4
+False positive items: 402.0, FPR: 0.0096895487851909 Number of groups: 5
+False positive items: 403.0, FPR: 0.00971365214037794 Number of groups: 6
+False positive items: 429.0, FPR: 0.010340339375241033 Number of groups: 7
+False positive items: 408.0, FPR: 0.009834168916313151 Number of groups: 8
+False positive items: 428.0, FPR: 0.010316236020053991 Number of groups: 9
+False positive items: 412.0, FPR: 0.009930582337061318 Number of groups: 10
+False positive items: 1379.0; FPR: 0.009971437868324957; Size of quries: 138295
+
+╰─ python3 PLBF.py --data_path ./data/exported_urls.csv  --size_of_PLBF 100000 --model_path ./data/pickle_model.sav --num_group_min 1 --num_group_max 10
+/home/hotdog2c/Desktop/Ada-BF/PLBF.py:66: MatplotlibDeprecationWarning: The seaborn styles shipped by Matplotlib are deprecated since 3.6, as they no longer correspond to the styles shipped by seaborn. However, they will remain available as 'seaborn-v0_8-<style>'. Alternatively, directly use the seaborn API instead.
+  plt.style.use('seaborn-deep')
+False positive items: 41488, FPR: 1.0 Number of groups: 1
+False positive items: 121.0, FPR: 0.002916505977632086 Number of groups: 2
+False positive items: 98.0, FPR: 0.0023621288083301197 Number of groups: 3
+False positive items: 97.0, FPR: 0.0023380254531430774 Number of groups: 4
+False positive items: 96.0, FPR: 0.0023139220979560356 Number of groups: 5
+False positive items: 97.0, FPR: 0.0023380254531430774 Number of groups: 6
+False positive items: 97.0, FPR: 0.0023380254531430774 Number of groups: 7
+False positive items: 96.0, FPR: 0.0023139220979560356 Number of groups: 8
+False positive items: 97.0, FPR: 0.0023380254531430774 Number of groups: 9
+False positive items: 99.0, FPR: 0.0023862321635171615 Number of groups: 10
+False positive items: 330.0; FPR: 0.002386203405763043; Size of quries: 138295
+
+╰─ python3 PLBF.py --data_path ./data/exported_urls.csv  --size_of_PLBF 300000 --model_path ./data/pickle_model.sav --num_group_min 1 --num_group_max 10
+/home/hotdog2c/Desktop/Ada-BF/PLBF.py:66: MatplotlibDeprecationWarning: The seaborn styles shipped by Matplotlib are deprecated since 3.6, as they no longer correspond to the styles shipped by seaborn. However, they will remain available as 'seaborn-v0_8-<style>'. Alternatively, directly use the seaborn API instead.
+  plt.style.use('seaborn-deep')
+False positive items: 41488, FPR: 1.0 Number of groups: 1
+False positive items: 132.0, FPR: 0.0031816428846895488 Number of groups: 2
+False positive items: 83.0, FPR: 0.002000578480524489 Number of groups: 3
+False positive items: 83.0, FPR: 0.002000578480524489 Number of groups: 4
+False positive items: 57.0, FPR: 0.001373891245661396 Number of groups: 5
+False positive items: 50.0, FPR: 0.0012051677593521019 Number of groups: 6
+False positive items: 54.0, FPR: 0.00130158118010027 Number of groups: 7
+False positive items: 53.0, FPR: 0.001277477824913228 Number of groups: 8
+False positive items: 58.0, FPR: 0.0013979946008484381 Number of groups: 9
+False positive items: 49.0, FPR: 0.0011810644041650598 Number of groups: 10
+False positive items: 172.0; FPR: 0.0012437181387613436; Size of quries: 138295
+
+╰─ python3 PLBF.py --data_path ./data/exported_urls.csv  --size_of_PLBF 550000 --model_path ./data/pickle_model.sav --num_group_min 1 --num_group_max 10
+/home/hotdog2c/Desktop/Ada-BF/PLBF.py:66: MatplotlibDeprecationWarning: The seaborn styles shipped by Matplotlib are deprecated since 3.6, as they no longer correspond to the styles shipped by seaborn. However, they will remain available as 'seaborn-v0_8-<style>'. Alternatively, directly use the seaborn API instead.
+  plt.style.use('seaborn-deep')
+False positive items: 41488, FPR: 1.0 Number of groups: 1
+False positive items: 93.0, FPR: 0.0022416120323949093 Number of groups: 2
+False positive items: 76.0, FPR: 0.0018318549942151947 Number of groups: 3
+False positive items: 76.0, FPR: 0.0018318549942151947 Number of groups: 4
+False positive items: 26.0, FPR: 0.000626687234863093 Number of groups: 5
+False positive items: 28.0, FPR: 0.000674893945237177 Number of groups: 6
+False positive items: 27.0, FPR: 0.000650790590050135 Number of groups: 7
+False positive items: 28.0, FPR: 0.000674893945237177 Number of groups: 8
+False positive items: 28.0, FPR: 0.000674893945237177 Number of groups: 9
+False positive items: 27.0, FPR: 0.000650790590050135 Number of groups: 10
+False positive items: 113.0; FPR: 0.0008170938934885571; Size of quries: 138295
+

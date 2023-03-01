@@ -6,3 +6,4 @@ jupyter
 ipykernel
 scikit-learn
 tld
+hurry.filesize

@@ -1,6 +1,5 @@
 import pandas as pd 
 import argparse
-import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from progress.bar import Bar

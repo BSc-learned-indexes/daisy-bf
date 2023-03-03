@@ -9,7 +9,7 @@ from scipy import optimize
 import argparse
 import pickle
 from Bloom_filter import BloomFilter
-
+from progress.bar import Bar
 
 
 parser = argparse.ArgumentParser()
@@ -239,6 +239,10 @@ Implement disjoint Ada-BF
 '''
 if __name__ == '__main__':
 
+    #Progress bar 
+    bar = Bar('Plotting distributions   ', max=(results.mem_max - results.mem_min)/results.mem_step)
+
+
     mem_arr = []
     FPR_arr = []
 
@@ -256,6 +260,7 @@ if __name__ == '__main__':
         tmp_df_data.to_csv(f"{results.out_path}tmp_PLBF_mem_FPR.csv")
 
         i += results.mem_step
+        bar.next()
 
     print(mem_arr)
     print(FPR_arr)
@@ -264,6 +269,7 @@ if __name__ == '__main__':
     df_data = pd.DataFrame.from_dict(data=data)
 
     df_data.to_csv(f"{results.out_path}PLBF_mem_FPR.csv")
+    bar.finish()
 
     '''Stage 1: Find the hyper-parameters'''
     """

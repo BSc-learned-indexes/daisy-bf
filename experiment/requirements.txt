@@ -7,3 +7,4 @@ ipykernel
 scikit-learn
 tld
 hurry.filesize
+argparse

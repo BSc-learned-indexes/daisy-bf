@@ -3,9 +3,11 @@ import argparse
 import pickle
 import matplotlib.pyplot as plt
 import numpy as np
+from progress.bar import Bar
+import warnings
+warnings.filterwarnings("ignore")
 
-
-
+bar = Bar('Plotting distributions   ', max=3)
 
 # Arguments 
 parser = argparse.ArgumentParser()
@@ -23,6 +25,7 @@ data = pd.read_csv('./data/scores/exported_urls.csv')
 
 
 # Plot distribution of Keys
+bar.next()
 
 keys = data.loc[data['label']==1,'score']
 non_keys = data.loc[data['label']==-1,'score']
@@ -48,6 +51,7 @@ plt.legend(loc='upper right')
 plt.savefig('./distributions/img/keys_non_keys.png')
 
 # Plot distribution of Non-keys 
+bar.next()
 
 plt.figure(3)
 plt.hist(non_keys, bins=20, log=True, label='Non-keys')
@@ -75,3 +79,6 @@ ax2.set_ylabel('Score')
 
 
 plt.savefig('./distributions/img/sub_plots.png')
+
+bar.next()
+bar.finish()

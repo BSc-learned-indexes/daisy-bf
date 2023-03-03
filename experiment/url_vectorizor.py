@@ -4,6 +4,14 @@ from urllib.parse import urlparse
 from tld import get_tld
 import re
 import argparse
+from progress.bar import Bar
+import warnings
+warnings.filterwarnings("ignore")
+
+# Progress bar
+bar = Bar('Vectorizing URL data     ', max=5)
+
+bar.next()
 
 # Parse arguments
 parser = argparse.ArgumentParser()
@@ -18,13 +26,13 @@ data_path = args.data_path
 out_path = args.out_path
 
 # Load data
-print("reading file")
+bar.next()
 data = pd.read_csv(data_path)
 # remove unlabled entries
-print("removing unknown labels")
+bar.next()
 data = data.drop('Unnamed: 0', axis=1)
 
-print("vectorizing urls")
+bar.next()
 # Length of URL
 data['url_length'] = data['url'].apply(lambda i: len(str(i)))
 
@@ -120,6 +128,8 @@ def shortening_service(url):
 data['use_of_ip'] = data['url'].apply(lambda i: having_ip_address(i))
 data['short_url'] = data['url'].apply(lambda i: shortening_service(i))
 
-print("writing to file")
+bar.next()
 
 data.to_csv(f"{out_path}/url_data_vectorized.csv", index=False)
+
+bar.finish()

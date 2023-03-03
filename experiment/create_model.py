@@ -5,6 +5,10 @@ import argparse
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, ConfusionMatrixDisplay
+from progress.bar import Bar
+
+# Progress bar
+bar = Bar('Creating model           ', max=5)
 
 
 # Arguments 
@@ -21,6 +25,12 @@ parser.add_argument("--model_type", action="store", dest="model_type", type=str,
 parser.add_argument("--train_split", action="store", dest="train_split", type=float, required=False,
                     help="split of training data", default = 0.3)
 
+parser.add_argument("--rfc_max_dept", action="store", dest="rfc_max_dept", type=int, required=False,
+                    help="split of training data", default = None)
+
+parser.add_argument("--rfc_n_estimators", action="store", dest="rfc_n_estimators", type=int, required=False,
+                    help="split of training data", default = 100)
+
 args = parser.parse_args()
 
 # Path
@@ -28,6 +38,8 @@ args = parser.parse_args()
 path = f"{args.data_path}/{args.file_name}.csv"
 
 data = pd.read_csv(path)
+
+bar.next()
 
 
 # -------------------------------------
@@ -50,7 +62,7 @@ if (args.model_type == "random_forest"):
 
 
     # Classify with random forest 
-    rfc = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+    rfc = RandomForestClassifier(n_estimators=args.rfc_n_estimators, max_depth=args.rfc_max_dept, random_state=42)
     rfc.fit(x_train, y_train)
     rfc_predictions = rfc.predict(x_test)
     
@@ -59,6 +71,7 @@ if (args.model_type == "random_forest"):
     model_f1 = f1_score(y_test, rfc_predictions)
     model_confusion_matrix = confusion_matrix(y_test,rfc_predictions)
 
+    bar.next()
 
 # ------------------------------
 # Model type 2: Regression model
@@ -82,17 +95,18 @@ x_predictions = rfc.predict_proba(x)
 x_predictions_df = pd.DataFrame(x_predictions, columns=["benign_score", "malicious_score"])
 
 
-print(data["result"].head())
-
 export = data[["url"]].copy()
 export["label"] = data["result"]
 export["score"] = x_predictions_df["malicious_score"].round(4)
 export["label"] = export["label"].replace([0], -1)
 export.to_csv('./data/scores/exported_urls.csv', index=False)
 
+bar.next()
+
 
 #Export pickled model
 pickle.dump(rfc, open('./models/model.pickle', 'wb')) # consider joblib
+bar.next()
 
 # Export model metadata
 # f1, accuracy, confusion_matrix, size 
@@ -114,7 +128,9 @@ confusion_plot = ConfusionMatrixDisplay(model_confusion_matrix)
 export_meta = pd.DataFrame(data=model_metadata, index=[0])
 
 export_meta.to_csv('./models/model_meta.csv', index=False)
+bar.next()
 
+bar.finish()
 
 
 

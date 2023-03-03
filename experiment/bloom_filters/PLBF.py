@@ -23,8 +23,6 @@ parser.add_argument('--num_group_min', action="store", dest="min_group", type=in
                     help="Minimum number of groups")
 parser.add_argument('--num_group_max', action="store", dest="max_group", type=int, required=True,
                     help="Maximum number of groups")
-parser.add_argument('--size_of_PLBF', action="store", dest="M_budget", type=int, required=True,
-                    help="memory budget")
 parser.add_argument('--frac', action="store", dest="frac", type=float, default = 0.3,
                     help="fraction of training samples")
 
@@ -42,6 +40,8 @@ DATA_PATH = results.data_path
 num_group_min = results.min_group
 num_group_max = results.max_group
 model_size = os.path.getsize(results.model_path)
+print(model_size)
+print(model_size * 8)
 if results.model_type == "SVM":
     clf = pickle.load(open(results.model_path, 'rb'))
     shape = clf['model'].support_vectors_.shape
@@ -53,7 +53,7 @@ elif results.model_type == "NN":
     model_size = total_para * 4 * 8
 else:
     model_size *= 8
-R_sum = results.M_budget - model_size
+#R_sum = results.M_budget - model_size
 
 
 
@@ -244,11 +244,17 @@ if __name__ == '__main__':
 
     i = results.mem_min
     while i <= results.mem_max:
+        print(f"current memory allocated: {i}")
         optim_partition, score_partition = DP_KL_table(train_negative, positive_sample, num_group_max)
-        Bloom_Filters_opt, thresholds_opt, best_fpr= Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative, positive_sample, optim_partition, score_partition)
+        Bloom_Filters_opt, thresholds_opt, best_fpr= Find_Optimal_Parameters(num_group_min, num_group_max, (i - model_size), train_negative, positive_sample, optim_partition, score_partition)
 
         mem_arr.append(i)
         FPR_arr.append(best_fpr)
+
+        tmp_data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+        tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
+        tmp_df_data.to_csv(f"{results.out_path}tmp_PLBF_mem_FPR.csv")
+
         i += results.mem_step
 
     print(mem_arr)

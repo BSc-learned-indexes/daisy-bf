@@ -8,4 +8,4 @@ scikit-learn
 tld
 hurry.filesize
 argparse
-progress.bar
+progress

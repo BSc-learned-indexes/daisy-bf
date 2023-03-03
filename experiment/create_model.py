@@ -86,20 +86,17 @@ print(data["result"].head())
 
 export = data[["url"]].copy()
 export["label"] = data["result"]
-export["score"] = x_predictions_df["malicious_score"]
+export["score"] = x_predictions_df["malicious_score"].round(4)
 export["label"] = export["label"].replace([0], -1)
 export.to_csv('./data/scores/exported_urls.csv', index=False)
 
 
 #Export pickled model
-# joblib.dump(rfc, 'malicious_URLs_model.pkl') 
-pickle.dump(rfc, open('./models/model.pickle', 'wb'))
+pickle.dump(rfc, open('./models/model.pickle', 'wb')) # consider joblib
 
 # Export model metadata
 # f1, accuracy, confusion_matrix, size 
 model_size = joblib_model = os.path.getsize('./models/model.pickle')
-# model_metadata = pd.DataFrame([model_f1, model_accuracy, model_confusion_matrix, model_size]
-#                               ,columns=["f1", "accuracy", "confusion_matrix", "size_bits"])
 
 model_metadata = {
     "f1": model_f1,

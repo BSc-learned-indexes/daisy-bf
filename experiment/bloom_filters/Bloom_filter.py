@@ -6,10 +6,14 @@ import argparse
 
 
 
-def hashfunc(m):
+def hashfunc(m, hash_seed=None):
     ss = randint(1, 99999999)
     def hash_m(x):
-        return murmurhash3_32(x,seed=ss)%m
+        if hash_seed is None:
+            return murmurhash3_32(x,seed=ss)%m
+        else:
+            #print(f"hash_seed: {hash_seed}")
+            return murmurhash3_32(x,seed=hash_seed)%m
     return hash_m
 
 
@@ -26,7 +30,7 @@ class BloomFilter():
             self.k = 1
         self.h = []
         for i in range(self.k):
-            self.h.append(hashfunc(self.hash_len))
+            self.h.append(hashfunc(self.hash_len, hash_seed=i))
         self.table = np.zeros(self.hash_len, dtype=int)
     def insert(self, key):
         if self.hash_len == 0:

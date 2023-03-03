@@ -28,6 +28,14 @@ parser.add_argument('--size_of_PLBF', action="store", dest="M_budget", type=int,
 parser.add_argument('--frac', action="store", dest="frac", type=float, default = 0.3,
                     help="fraction of training samples")
 
+parser.add_argument('--mem_min', action="store", dest="mem_min", type=int, default = 100_000,
+                    help="minimum memory to allocate for model + bloom filters")
+parser.add_argument('--mem_max', action="store", dest="mem_max", type=int, default = 200_000,
+                    help="maximum memory to allocate for model + bloom filters")
+parser.add_argument('--mem_step', action="store", dest="mem_step", type=int, default = 50_000,
+                    help="amount of memory to step for each")
+parser.add_argument('--out_path', action="store", dest="out_path", type=str,
+                    required=False, help="path of the output", default="./data/plots/")
 
 results = parser.parse_args()
 DATA_PATH = results.data_path
@@ -55,7 +63,7 @@ Load the data and select training data
 data = pd.read_csv(DATA_PATH)
 negative_sample = data.loc[(data['label']==-1)]
 positive_sample = data.loc[(data['label']==1)]
-train_negative = negative_sample.sample(frac = results.frac)
+train_negative = negative_sample.sample(frac = results.frac, random_state=42)
 negative_score = negative_sample['score']
 positive_score = positive_sample['score']
 
@@ -63,6 +71,7 @@ positive_score = positive_sample['score']
 '''
 Plot the distribution of scores
 '''
+"""
 plt.style.use('seaborn-deep')
 
 x = data.loc[data['label']==1,'score']
@@ -73,7 +82,7 @@ plt.hist([x, y], bins, log=True, label=['Keys', 'non-Keys'])
 plt.legend(loc='upper right')
 plt.savefig('./Score_Dist.png')
 plt.show()
-
+"""
 
 
 def DP_KL_table(train_negative, positive_sample, num_group_max):
@@ -138,6 +147,7 @@ def DP_KL_table(train_negative, positive_sample, num_group_max):
 
 def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative, positive_sample, optim_partition, score_partition):
     FP_opt = train_negative.shape[0]
+    best_FPR = 1
 
     for num_group in range(num_group_min, num_group_max+1):
         ### Determine the thresholds    
@@ -213,12 +223,14 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
         # print(f'False positive rate:  {FP_items/len(train_negative)}')
         # print(f'-----------------------------------------')
         print('False positive items: {}, FPR: {} Number of groups: {}'.format(FP_items, FPR, num_group))
+
         if FP_opt > FP_items:
+            best_FPR = FPR
             FP_opt = FP_items
             Bloom_Filters_opt = Bloom_Filters
             thresholds_opt = thresholds
 
-    return Bloom_Filters_opt, thresholds_opt
+    return Bloom_Filters_opt, thresholds_opt, best_FPR
 
 
 
@@ -226,9 +238,39 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
 Implement disjoint Ada-BF
 '''
 if __name__ == '__main__':
+
+    mem_arr = []
+    FPR_arr = []
+
+    i = results.mem_min
+    while i <= results.mem_max:
+        optim_partition, score_partition = DP_KL_table(train_negative, positive_sample, num_group_max)
+        Bloom_Filters_opt, thresholds_opt, best_fpr= Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative, positive_sample, optim_partition, score_partition)
+
+        mem_arr.append(i)
+        FPR_arr.append(best_fpr)
+        i += results.mem_step
+
+    print(mem_arr)
+    print(FPR_arr)
+
+    data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+    df_data = pd.DataFrame.from_dict(data=data)
+
+    df_data.to_csv(f"{results.out_path}PLBF_mem_FPR.csv")
+
     '''Stage 1: Find the hyper-parameters'''
+    """
     optim_partition, score_partition = DP_KL_table(train_negative, positive_sample, num_group_max)
-    Bloom_Filters_opt, thresholds_opt = Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative, positive_sample, optim_partition, score_partition)
+    Bloom_Filters_opt, thresholds_opt, best_fpr= Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative, positive_sample, optim_partition, score_partition)
+    print(f"bloom_filters_opt: {Bloom_Filters_opt}")
+    print(f"len(bloom_filters_opt): {len(Bloom_Filters_opt)}")
+    print(f"FPR: {best_fpr}")
+    print(f"thresholds_opt: {thresholds_opt}")
+"""
+
+
+    """
     
     '''Stage 2: Run Ada-BF on all the samples'''
     ### Test queries
@@ -244,6 +286,7 @@ if __name__ == '__main__':
     FP_items = sum(test_result) + len(ML_positive)
     FPR = FP_items/len(negative_sample)
     print('False positive items: {}; FPR: {}; Size of quries: {}'.format(FP_items, FPR, len(negative_sample)))
+    """
 
 
 

@@ -1,0 +1,9 @@
+numpy
+pandas 
+matplotlib 
+seaborn
+jupyter
+ipykernel
+scikit-learn
+tld
+hurry.filesize

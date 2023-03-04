@@ -1,6 +1,7 @@
 import pandas as pd 
 import argparse
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import numpy as np
 from progress.bar import Bar
 import warnings
@@ -18,23 +19,27 @@ args = parser.parse_args()
 
 print(args.file_names)
 
-files = args.file_names
+names = args.file_names
 
-bar = Bar('Plotting distributions   ', max=len(files))
+bar = Bar('Plotting distributions   ', max=len(names))
 
-for name in files: 
+for name in names: 
     data = pd.read_csv(f'./data/plots/{name}')
 
     # Define plots 
     # Plot distribution of Keys
     bar.next()
     x = data["memory"]
+    x = x.div(1000)
     y = data["false_positive_rating"]
 
-    plt.plot(x, y)
+    plt.plot(x, y, linestyle='dashed', marker='x')
 
 plt.yscale("log")
-# plt.axis((0,1000,0.0001,0.1))
+plt.legend(names)
+# plt.axis((80,520,0,0.01))
+plt.xlabel('Size (Kb)')
+plt.ylabel('False Positive Rate (%)')
 plt.savefig('./distributions/img/keys.png')
 
 bar.finish()

@@ -37,7 +37,7 @@ for name in names:
 
 plt.yscale("log")
 plt.legend(names)
-plt.axis((50,550,0,0.01))
+plt.axis((50,550,0,1))
 plt.xlabel('Size (Kb)')
 plt.ylabel('False Positive Rate (%)')
 plt.savefig('./graphs/final.png')

@@ -73,7 +73,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', action="store", dest="data_path", type=str, required=True,
                         help="path of the dataset")
-    parser.add_argument('--min_size', action="store", dest="min_size", type=int, default = 100_000,
+    parser.add_argument('--min_size', action="store", dest="min_size", type=int, default = 150_000,
                         help="minimum memory to allocate for model + bloom filters")
     parser.add_argument('--max_size', action="store", dest="max_size", type=int, default = 500_000,
                         help="maximum memory to allocate for model + bloom filters")

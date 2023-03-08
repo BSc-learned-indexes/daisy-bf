@@ -154,6 +154,37 @@ def Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, t
 
 
 
+def run(i): 
+    print(f"current memory allocated: {i}")
+    print(i-model_size)
+    '''Stage 1: Find the hyper-parameters (spare 30% samples to find the parameters)'''
+    bloom_filter_opt, thresholds_opt, k_max_opt = Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, (i-model_size), train_negative, positive_sample)
+
+
+
+    '''Stage 2: Run Ada-BF on all the samples'''
+    ### Test URLs
+    ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
+    url_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
+    score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
+    test_result = np.zeros(len(url_negative))
+    ss = 0
+    for score_s, url_s in zip(score_negative, url_negative):
+        ix = min(np.where(score_s < thresholds_opt)[0])
+        # thres = thresholds[ix]
+        k = k_max_opt - ix
+        test_result[ss] = bloom_filter_opt.test(url_s, k)
+        ss += 1
+    FP_items = sum(test_result) + len(ML_positive)
+    FPR = FP_items / len(negative_sample)
+    print('False positive items: %d' % FP_items)
+    print('False positive rate: %d' % FPR)
+
+    index = ((i - args.min_size) / (args.step )) - 1
+
+    mem_arr[index] = i 
+    FPR_arr[index] = FPR
+
 '''
 Implement Ada-BF
 '''
@@ -164,55 +195,77 @@ if __name__ == '__main__':
     bar = Bar('Creating PLBF', max=math.ceil((args.max_size - args.min_size)/args.step))
 
 
-    mem_arr = []
-    FPR_arr = []
+    mem_arr = [] * math.ceil((args.max_size - args.min_size)/args.step)
+    FPR_arr = [] * math.ceil((args.max_size - args.min_size)/args.step)
+
+    from multiprocessing.pool import ThreadPool as Pool
+    # from multiprocessing import Pool
+
+    pool_size = 10  # your "parallelness"
+
+    # define worker function before a Pool is instantiated
+    def worker(item):
+        try:
+            run(item)
+        except:
+            print('error with item')
+
+    pool = Pool(pool_size)
+
+    # for item in items:
+    #     pool.apply_async(worker, (item,))
+
+   
 
     i = args.min_size
     while i <= args.max_size:
-        print(f"current memory allocated: {i}")
-
-        '''Stage 1: Find the hyper-parameters (spare 30% samples to find the parameters)'''
-        bloom_filter_opt, thresholds_opt, k_max_opt = Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, (i-model_size), train_negative, positive_sample)
-
-
-
-        '''Stage 2: Run Ada-BF on all the samples'''
-        ### Test URLs
-        ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
-        url_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
-        score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
-        test_result = np.zeros(len(url_negative))
-        ss = 0
-        for score_s, url_s in zip(score_negative, url_negative):
-            ix = min(np.where(score_s < thresholds_opt)[0])
-            # thres = thresholds[ix]
-            k = k_max_opt - ix
-            test_result[ss] = bloom_filter_opt.test(url_s, k)
-            ss += 1
-        FP_items = sum(test_result) + len(ML_positive)
-        FPR = FP_items / len(negative_sample)
-        print('False positive items: %d' % FP_items)
-        print('False positive rate: %d' % FPR)
+        # print(f"current memory allocated: {i}")
+        # print(i-model_size)
+        # '''Stage 1: Find the hyper-parameters (spare 30% samples to find the parameters)'''
+        # bloom_filter_opt, thresholds_opt, k_max_opt = Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, (i-model_size), train_negative, positive_sample)
+        pool.apply_async(worker, (i,))
 
 
+        # '''Stage 2: Run Ada-BF on all the samples'''
+        # ### Test URLs
+        # ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
+        # url_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
+        # score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
+        # test_result = np.zeros(len(url_negative))
+        # ss = 0
+        # for score_s, url_s in zip(score_negative, url_negative):
+        #     ix = min(np.where(score_s < thresholds_opt)[0])
+        #     # thres = thresholds[ix]
+        #     k = k_max_opt - ix
+        #     test_result[ss] = bloom_filter_opt.test(url_s, k)
+        #     ss += 1
+        # FP_items = sum(test_result) + len(ML_positive)
+        # FPR = FP_items / len(negative_sample)
+        # print('False positive items: %d' % FP_items)
+        # print('False positive rate: %d' % FPR)
 
-        mem_arr.append(i)
-        FPR_arr.append(FPR)
 
-        tmp_data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
-        tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
-        tmp_df_data.to_csv(f"{args.out_path}tmp_Ada-BF.csv")
+
+        # mem_arr.append(i)
+        # FPR_arr.append(FPR)
+
+        # tmp_data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+        # tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
+        # tmp_df_data.to_csv(f"{args.out_path}tmp_Ada-BF.csv")
 
         i += args.step
         bar.next()
 
+    pool.close()
+    pool.join()
+    
     print(mem_arr)
     print(FPR_arr)
 
     data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
     df_data = pd.DataFrame.from_dict(data=data)
 
-    df_data.to_csv(f"{args.out_path}Ada-BF.csv")
+    df_data.to_csv(f"{args.out_path}Ada-BF_async.csv")
     bar.finish()
 
  

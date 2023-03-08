@@ -3,8 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 from Bloom_filter import hashfunc
-
-
+import math 
+from progress.bar import Bar
+import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', action="store", dest="data_path", type=str, required=True,
@@ -13,22 +14,32 @@ parser.add_argument('--num_group_min', action="store", dest="min_group", type=in
                     help="Minimum number of groups")
 parser.add_argument('--num_group_max', action="store", dest="max_group", type=int, required=True,
                     help="Maximum number of groups")
-parser.add_argument('--size_of_Ada_BF', action="store", dest="R_sum", type=int, required=True,
-                    help="size of the Ada-BF")
-parser.add_argument('--c_min', action="store", dest="c_min", type=float, required=True,
+parser.add_argument('--c_min', action="store", dest="c_min", type=float, required=False, default=2.0,
                     help="minimum ratio of the keys")
-parser.add_argument('--c_max', action="store", dest="c_max", type=float, required=True,
+parser.add_argument('--c_max', action="store", dest="c_max", type=float, required=False, default=3.0,
                     help="maximum ratio of the keys")
+parser.add_argument('--model_path', action="store", dest="model_path", type=str, required=True,
+                    help="path of the model")
+
+parser.add_argument('--min_size', action="store", dest="min_size", type=int, default = 100_000,
+                    help="minimum memory to allocate for model + bloom filters")
+parser.add_argument('--max_size', action="store", dest="max_size", type=int, default = 500_000,
+                    help="maximum memory to allocate for model + bloom filters")
+parser.add_argument('--step', action="store", dest="step", type=int, default = 50_000,
+                    help="amount of memory to step for each")
+parser.add_argument('--out_path', action="store", dest="out_path", type=str,
+                    required=False, help="path of the output", default="./data/plots/")
 
 
 
-results = parser.parse_args()
-DATA_PATH = results.data_path
-num_group_min = results.min_group
-num_group_max = results.max_group
-R_sum = results.R_sum
-c_min = results.c_min
-c_max = results.c_max
+args = parser.parse_args()
+DATA_PATH = args.data_path
+num_group_min = args.min_group
+num_group_max = args.max_group
+c_min = args.c_min
+c_max = args.c_max
+model_size = os.path.getsize(args.model_path) * 8 
+
 
 
 # DATA_PATH = './URL_data.csv'
@@ -46,23 +57,6 @@ data = pd.read_csv(DATA_PATH)
 negative_sample = data.loc[(data['label']==-1)]
 positive_sample = data.loc[(data['label']==1)]
 train_negative = negative_sample.sample(frac = 0.3)
-
-
-
-'''
-Plot the distribution of scores
-'''
-plt.style.use('seaborn-deep')
-
-x = data.loc[data['label']==1,'score']
-y = data.loc[data['label']==-1,'score']
-bins = np.linspace(0, 1, 25)
-
-plt.hist([x, y], bins, log=True, label=['Keys', 'non-Keys'])
-plt.legend(loc='upper right')
-plt.savefig('./Score_Dist.png')
-plt.show()
-
 
 class Ada_BloomFilter():
     def __init__(self, n, hash_len, k_max):
@@ -141,11 +135,11 @@ def Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, t
             FP_items = sum(test_result) + len(ML_positive)
 
 
-            print(f'Train neg len:  {len(train_negative)}')
-            print(f'ML pos len:  {len(ML_positive)}')
-            print(f'Test result sum:  {sum(test_result)}')
-            print(f'False positive rate:  {FP_items/len(train_negative)}')
-            print(f'-----------------------------------------')
+            # print(f'Train neg len:  {len(train_negative)}')
+            # print(f'ML pos len:  {len(ML_positive)}')
+            # print(f'Test result sum:  {sum(test_result)}')
+            # print(f'False positive rate:  {FP_items/len(train_negative)}')
+            # print(f'-----------------------------------------')
 
             print('False positive items: %d, Number of groups: %d, c = %f' %(FP_items, k_max, round(c, 2)))
 
@@ -164,22 +158,84 @@ def Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, t
 Implement Ada-BF
 '''
 if __name__ == '__main__':
-    '''Stage 1: Find the hyper-parameters (spare 30% samples to find the parameters)'''
-    bloom_filter_opt, thresholds_opt, k_max_opt = Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, train_negative, positive_sample)
 
-    '''Stage 2: Run Ada-BF on all the samples'''
-    ### Test URLs
-    ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
-    url_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
-    score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
-    test_result = np.zeros(len(url_negative))
-    ss = 0
-    for score_s, url_s in zip(score_negative, url_negative):
-        ix = min(np.where(score_s < thresholds_opt)[0])
-        # thres = thresholds[ix]
-        k = k_max_opt - ix
-        test_result[ss] = bloom_filter_opt.test(url_s, k)
-        ss += 1
-    FP_items = sum(test_result) + len(ML_positive)
-    print('False positive items: %d' % FP_items)
+
+        #Progress bar 
+    bar = Bar('Creating PLBF', max=math.ceil((args.max_size - args.min_size)/args.step))
+
+
+    mem_arr = []
+    FPR_arr = []
+
+    i = args.min_size
+    while i <= args.max_size:
+        print(f"current memory allocated: {i}")
+
+        '''Stage 1: Find the hyper-parameters (spare 30% samples to find the parameters)'''
+        bloom_filter_opt, thresholds_opt, k_max_opt = Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, (i-model_size), train_negative, positive_sample)
+
+
+
+        '''Stage 2: Run Ada-BF on all the samples'''
+        ### Test URLs
+        ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
+        url_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
+        score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
+        test_result = np.zeros(len(url_negative))
+        ss = 0
+        for score_s, url_s in zip(score_negative, url_negative):
+            ix = min(np.where(score_s < thresholds_opt)[0])
+            # thres = thresholds[ix]
+            k = k_max_opt - ix
+            test_result[ss] = bloom_filter_opt.test(url_s, k)
+            ss += 1
+        FP_items = sum(test_result) + len(ML_positive)
+        FPR = FP_items / len(negative_sample)
+        print('False positive items: %d' % FP_items)
+        print('False positive rate: %d' % FPR)
+
+
+
+        mem_arr.append(i)
+        FPR_arr.append(FPR)
+
+        tmp_data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+        tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
+        tmp_df_data.to_csv(f"{args.out_path}tmp_Ada-BF.csv")
+
+        i += args.step
+        bar.next()
+
+    print(mem_arr)
+    print(FPR_arr)
+
+    data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+    df_data = pd.DataFrame.from_dict(data=data)
+
+    df_data.to_csv(f"{args.out_path}Ada-BF.csv")
+    bar.finish()
+
+ 
+
+
+
+
+    # '''Stage 1: Find the hyper-parameters (spare 30% samples to find the parameters)'''
+    # bloom_filter_opt, thresholds_opt, k_max_opt = Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, train_negative, positive_sample)
+
+    # '''Stage 2: Run Ada-BF on all the samples'''
+    # ### Test URLs
+    # ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
+    # url_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
+    # score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
+    # test_result = np.zeros(len(url_negative))
+    # ss = 0
+    # for score_s, url_s in zip(score_negative, url_negative):
+    #     ix = min(np.where(score_s < thresholds_opt)[0])
+    #     # thres = thresholds[ix]
+    #     k = k_max_opt - ix
+    #     test_result[ss] = bloom_filter_opt.test(url_s, k)
+    #     ss += 1
+    # FP_items = sum(test_result) + len(ML_positive)
+    # print('False positive items: %d' % FP_items)
 

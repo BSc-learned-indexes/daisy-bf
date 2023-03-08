@@ -10,6 +10,7 @@ import argparse
 import pickle
 from Bloom_filter import BloomFilter
 from progress.bar import Bar
+import math
 
 
 parser = argparse.ArgumentParser()
@@ -26,11 +27,11 @@ parser.add_argument('--num_group_max', action="store", dest="max_group", type=in
 parser.add_argument('--frac', action="store", dest="frac", type=float, default = 0.3,
                     help="fraction of training samples")
 
-parser.add_argument('--mem_min', action="store", dest="mem_min", type=int, default = 100_000,
+parser.add_argument('--min_size', action="store", dest="min_size", type=int, default = 100_000,
                     help="minimum memory to allocate for model + bloom filters")
-parser.add_argument('--mem_max', action="store", dest="mem_max", type=int, default = 200_000,
+parser.add_argument('--max_size', action="store", dest="max_size", type=int, default = 200_000,
                     help="maximum memory to allocate for model + bloom filters")
-parser.add_argument('--mem_step', action="store", dest="mem_step", type=int, default = 50_000,
+parser.add_argument('--step', action="store", dest="step", type=int, default = 50_000,
                     help="amount of memory to step for each")
 parser.add_argument('--out_path', action="store", dest="out_path", type=str,
                     required=False, help="path of the output", default="./data/plots/")
@@ -240,26 +241,46 @@ Implement disjoint Ada-BF
 if __name__ == '__main__':
 
     #Progress bar 
-    bar = Bar('Plotting distributions   ', max=(results.mem_max - results.mem_min)/results.mem_step)
+    bar = Bar('Creating PLBF', max=math.ceil((results.max_size - results.min_size)/results.step))
 
 
     mem_arr = []
     FPR_arr = []
 
-    i = results.mem_min
-    while i <= results.mem_max:
+    i = results.min_size
+    while i <= results.max_size:
         print(f"current memory allocated: {i}")
+
+        '''Stage 1 - Find hyper parameters'''
         optim_partition, score_partition = DP_KL_table(train_negative, positive_sample, num_group_max)
-        Bloom_Filters_opt, thresholds_opt, best_fpr= Find_Optimal_Parameters(num_group_min, num_group_max, (i - model_size), train_negative, positive_sample, optim_partition, score_partition)
+        Bloom_Filters_opt, thresholds_opt, _= Find_Optimal_Parameters(num_group_min, num_group_max, (i - model_size), train_negative, positive_sample, optim_partition, score_partition)
+
+
+
+        '''Stage 2: Run Ada-BF on all the samples'''
+        ### Test queries
+        ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
+        query_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
+        score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
+        test_result = np.zeros(len(query_negative))
+        ss = 0
+        for score_s, query_s in zip(score_negative, query_negative):
+            ix = min(np.where(score_s < thresholds_opt)[0]) - 1
+            test_result[ss] = Bloom_Filters_opt[ix].test(query_s)
+            ss += 1
+        FP_items = sum(test_result) + len(ML_positive)
+        FPR = FP_items/len(negative_sample)
+        print('False positive items: {}; FPR: {}; Size of quries: {}'.format(FP_items, FPR, len(negative_sample)))
+
 
         mem_arr.append(i)
-        FPR_arr.append(best_fpr)
+        FPR_arr.append(FPR)
 
         tmp_data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
         tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
-        tmp_df_data.to_csv(f"{results.out_path}tmp_PLBF_mem_FPR.csv")
+        tmp_df_data.to_csv(f"{results.out_path}tmp_PLBF.csv")
 
-        i += results.mem_step
+        i += results.step
         bar.next()
 
     print(mem_arr)
@@ -271,34 +292,5 @@ if __name__ == '__main__':
     df_data.to_csv(f"{results.out_path}PLBF_mem_FPR.csv")
     bar.finish()
 
-    '''Stage 1: Find the hyper-parameters'''
-    """
-    optim_partition, score_partition = DP_KL_table(train_negative, positive_sample, num_group_max)
-    Bloom_Filters_opt, thresholds_opt, best_fpr= Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative, positive_sample, optim_partition, score_partition)
-    print(f"bloom_filters_opt: {Bloom_Filters_opt}")
-    print(f"len(bloom_filters_opt): {len(Bloom_Filters_opt)}")
-    print(f"FPR: {best_fpr}")
-    print(f"thresholds_opt: {thresholds_opt}")
-"""
-
-
-    """
-    
-    '''Stage 2: Run Ada-BF on all the samples'''
-    ### Test queries
-    ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
-    query_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
-    score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
-    test_result = np.zeros(len(query_negative))
-    ss = 0
-    for score_s, query_s in zip(score_negative, query_negative):
-        ix = min(np.where(score_s < thresholds_opt)[0]) - 1
-        test_result[ss] = Bloom_Filters_opt[ix].test(query_s)
-        ss += 1
-    FP_items = sum(test_result) + len(ML_positive)
-    FPR = FP_items/len(negative_sample)
-    print('False positive items: {}; FPR: {}; Size of quries: {}'.format(FP_items, FPR, len(negative_sample)))
-    """
-
-
+ 
 

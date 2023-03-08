@@ -161,7 +161,7 @@ if __name__ == '__main__':
 
 
         #Progress bar 
-    bar = Bar('Creating PLBF', max=math.ceil((args.max_size - args.min_size)/args.step))
+    bar = Bar('Creating Ada-BF', max=math.ceil((args.max_size - args.min_size)/args.step))
 
 
     mem_arr = []

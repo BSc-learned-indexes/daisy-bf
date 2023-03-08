@@ -17,8 +17,6 @@ parser.add_argument("--file_names", nargs="+", action="store", dest="file_names"
 
 args = parser.parse_args()
 
-print(args.file_names)
-
 names = args.file_names
 
 bar = Bar('Plotting distributions   ', max=len(names))

@@ -29,22 +29,31 @@ def load_data():
 
 def choose_number_of_hash_functions(n, F, px, qx):
     if px > (1 / n): 
-        return 0
+        k_x = 0
     elif F * px < qx and qx <= min(px, (F/n)):
-        return math.log(1/F*(qx/px), 2)
+        k_x = math.log(1/F*(qx/px), 2)
     elif qx > px and (F/n) >= px:
-        return math.log(1/F, 2)
+        k_x = math.log(1/F, 2)
     elif qx > (F/n) and (F/n) < px and px <= 1/n:
-        return math.log(1/(n*px), 2)
+        k_x = math.log(1/(n*px), 2)
     else: 
         raise Exception("k could not be calculated.")
     
-def calc_lower_bound(data, F_target, n):
-    U
+    return math.ceil(k_x)
+    
+def calc_lower_bound(data, F, n):
+    #u_2, u_3, u_4 = 0, 0, 0
+    total = 0
+
+    for row in data.rows:
+        
+        total += choose_number_of_hash_functions(n, F, )
+
+
     
 
-def calc_filter_size_from_target_FPR(data, F_target, n):
-    lower_bound = calc_lower_bound(data, F_target, n)
+def calc_filter_size_from_target_FPR(data, F, n):
+    lower_bound = calc_lower_bound(data, F, n)
     return math.log(math.e, 2) * lower_bound
 
 def normalize_scores(pos_data, neg_data):

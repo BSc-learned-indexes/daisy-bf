@@ -27,16 +27,32 @@ def load_data():
     negative_sample = data.loc[(data['label']==-1)]
     return data, positive_sample, negative_sample
 
+def choose_number_of_hash_functions(n, F, px, qx):
+    if px > (1 / n): 
+        return 0
+    elif F * px < qx and qx <= min(px, (F/n)):
+        return math.log(1/F*(qx/px), 2)
+    elif qx > px and (F/n) >= px:
+        return math.log(1/F, 2)
+    elif qx > (F/n) and (F/n) < px and px <= 1/n:
+        return math.log(1/(n*px), 2)
+    else: 
+        raise Exception("k could not be calculated.")
+    
+def calc_lower_bound(data, F_target, n):
+    U
+    
+
+def calc_filter_size_from_target_FPR(data, F_target, n):
+    lower_bound = calc_lower_bound(data, F_target, n)
+    return math.log(math.e, 2) * lower_bound
+
 def normalize_scores(pos_data, neg_data):
     k = pos_data["score"].sum() + neg_data["score"].sum()
     # n = len(pos_data["score"]) + len(neg_data)
 
-    norm_neg = neg_data["score"] / k
-    norm_pos = pos_data["scores"] / k
-    pos_data["norm_score"] = norm_pos
-    neg_data["norm_score"] = norm_neg
-
-
+    pos_data["norm_score"] = pos_data["score"].div(k)
+    neg_data["norm_score"] = neg_data["score"].div(k)
 
 if __name__ == '__main__':
 
@@ -47,17 +63,20 @@ if __name__ == '__main__':
     CONST_Q = args.const_q
 
     #Progress bar 
-    bar = Bar('Creating Daisy-BF', max=math.ceil((args.max_size - args.min_size)/args.step))
+    # bar = Bar('Creating Daisy-BF', max=math.ceil((args.max_size - args.min_size)/args.step))
 
     all_data, positive_data, negative_data = load_data()
 
     # create constant Q:
-    Q = 0.0;
+    Q = 0.0
     if CONST_Q:
-        Q = 1 / (len(negative_sample) + len(positive_sample))
+        Q = 1 / (len(negative_data) + len(positive_data))
         print(f"Q is set to be constant: {Q}")
 
     normalize_scores(positive_data, negative_data)
+
+    print(positive_data.head())
+    print(negative_data.head())
 
     mem_arr = []
     FPR_arr = []

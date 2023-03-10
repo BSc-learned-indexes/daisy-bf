@@ -30,7 +30,6 @@ def load_data():
 def choose_number_of_hash_functions(n, F, px, qx):
     if qx <= F * px or px > (1 / n): 
         k_x = 0
-        print("yo")
     elif F * px < qx and qx <= min(px, (F/n)):
         k_x = math.log(1/(F*(qx/px)), 2)
     elif qx > px and (F/n) >= px:
@@ -44,14 +43,18 @@ def choose_number_of_hash_functions(n, F, px, qx):
     
 def calc_lower_bound(data, F, n):
     total = 0
-    print(data.head())
+    # print(data.head())
     standard_k = math.log((1/F), 2)
+    print(f"log(1/F): {standard_k}")
+    k_arr = [0]*10
     for _, row in data.iterrows():
         px = row["px"]
         qx = row["qx"] 
         num_k = choose_number_of_hash_functions(n, F, px, qx)
-        print(num_k, standard_k)
+        k_arr[num_k] += 1
+        # print(num_k, standard_k)
         total += px * num_k
+    print(k_arr)
     return n * total
 
 def calc_filter_size_from_target_FPR(data, F_target, n):
@@ -91,7 +94,21 @@ if __name__ == '__main__':
     print(positive_data.head())
     print(negative_data.head())
 
-    size = calc_filter_size_from_target_FPR(pd.concat([positive_data, negative_data]), 0.0001, len(positive_data))
-    print(size)
+
+    size_arr = []
+    f_arr = []
+    f_i = 0.1
+    step = 0.01
+    max_f = 0.5
+    while f_i < max_f:
+        print(f"FPR: {f_i}")
+        size = calc_filter_size_from_target_FPR(pd.concat([positive_data, negative_data]), f_i, len(positive_data))
+        print(f"size: {size}")
+        size_arr.append(size)
+        f_arr.append(f_i)
+        f_i += step
+        
+    print(f"size_arr: {size_arr}")
+    print(f"FPR_arr: {f_arr}")
     mem_arr = []
     FPR_arr = []

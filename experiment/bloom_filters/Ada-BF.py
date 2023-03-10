@@ -32,13 +32,14 @@ parser.add_argument('--out_path', action="store", dest="out_path", type=str,
 
 
 
+
 args = parser.parse_args()
 DATA_PATH = args.data_path
 num_group_min = args.min_group
 num_group_max = args.max_group
 c_min = args.c_min
 c_max = args.c_max
-model_size = os.path.getsize(args.model_path) * 8 
+model_size = os.path.getsize(args.model_path) * 8 #get it to bits instead of byte
 
 
 

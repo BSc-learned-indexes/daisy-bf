@@ -28,7 +28,7 @@ def load_data():
     negative_sample = data.loc[(data['label']==-1)]
     return data, positive_sample, negative_sample
 
-def choose_number_of_hash_functions(n, F, px, qx, should_print):
+def choose_number_of_hash_functions(u, n, F, px, qx, should_print):
     if should_print:
         print("--------------------")
         print("qx: {:.20f}".format(qx))
@@ -39,21 +39,18 @@ def choose_number_of_hash_functions(n, F, px, qx, should_print):
         print("--------------------")
         print("(F/n): {:.20f}".format((F/n)))
 
-    if qx <= F * px or px > (1 / n): 
+    if px > 1/(u*F):
         k_x = 0
-    elif F * px < qx and qx <= min(px, (F/n)):
-        k_x = math.log(1/(F*(qx/px)), 2)
-    elif qx > px and (F/n) >= px:
-        # print("**LOG 1 OVER F**")
+    elif 1/u < px < 1/(u*F):
+        k_x = math.log(1/(u*F*px), 2)
+    elif px < 1/u:
         k_x = math.log(1/F, 2)
-    elif qx > (F/n) and ((F/n) < px and px <= 1/n):
-        k_x = math.log(1/(n*px), 2)
     else: 
         raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
     
     return math.ceil(k_x)
     
-def calc_lower_bound(data, F, n):
+def calc_lower_bound(data, F, n, u):
     total = 0
     # print(data.head())
     standard_k = math.log((1/F), 2)
@@ -65,8 +62,8 @@ def calc_lower_bound(data, F, n):
         qx = row["qx"] 
         # qx = F/n
         qx = 1/n
-        px = 1 - (1/(10**px))
-        num_k = choose_number_of_hash_functions(n, F, px, qx, should_print)
+        # px = 1 - (1/(10**px))
+        num_k = choose_number_of_hash_functions(u, n, F, px, qx, should_print)
         should_print = False
         k_arr[num_k] += 1
         # print(num_k, standard_k)
@@ -74,8 +71,8 @@ def calc_lower_bound(data, F, n):
     print(k_arr)
     return n * total
 
-def calc_filter_size_from_target_FPR(data, F_target, n):
-    lower_bound = calc_lower_bound(data, F_target/6, n)
+def calc_filter_size_from_target_FPR(data, F_target, n, u):
+    lower_bound = calc_lower_bound(data, F_target/6, n, u)
     size = math.log(math.e, 2) * lower_bound
     return math.ceil(size)
 
@@ -151,7 +148,7 @@ if __name__ == '__main__':
 
     for f_i in FPR_arr:
         print(f"FPR: {f_i}")
-        size = calc_filter_size_from_target_FPR(positive_data, f_i, len(positive_data))
+        size = calc_filter_size_from_target_FPR(positive_data, f_i, len(positive_data), len(all_data))
         # size = calc_filter_size_from_target_FPR(pd.concat([positive_data, negative_data]), f_i, len(positive_data))
         print(f"size: {size}")
         mem_arr.append(size + MODEL_SIZE)

@@ -28,7 +28,7 @@ def load_data():
     negative_sample = data.loc[(data['label']==-1)]
     return data, positive_sample, negative_sample
 
-def choose_number_of_hash_functions(n, F, px, qx, should_print):
+def choose_number_of_hash_functions(n, F, px, qx, should_print=False):
     if should_print:
         print("--------------------")
         print("qx: {:.20f}".format(qx))
@@ -89,6 +89,40 @@ def normalize_scores(pos_data, neg_data):
 def get_target_FPR_from_csv(path):
     data = pd.read_csv(path)
     return data['false_positive_rating'].values.tolist()
+
+class Daisy_BloomFilter():
+    def __init__(self, n, m, F) -> None:
+        self.n = n
+        self.m = m
+        self.hash_functions = []
+        self.max_hash_functions = math.ceil(math.log(1/F, 2))
+        
+        for i in range(self.max_hash_functions):
+            self.hash_functions.append(hashfunc(self.m))
+        self.table = np.zeros(self.m, dtype=int)
+
+    def insert(self, key, px, qx):
+        k_x = choose_number_of_hash_functions(self.n, self.F, px, qx)
+        for i in range(k_x):
+            table_index = self.hash_functions[i](key)
+            self.table[table_index] = 1
+
+    """
+    lookup returns False if the element is not in the set, and True if there is a posibility of the element being in the set.
+    """
+    def lookup(self, key, px, qx):
+        k_x = choose_number_of_hash_functions(self.n, self.F, px, qx)
+        for i in range(k_x):
+            table_index = self.hash_functions[i](key)
+            if self.table[table_index] == 0:
+                return False
+        return True
+
+    def test(self, key, px, qx):
+        if self.lookup(key, px, qx):
+            return 1
+        else:
+            return 0
 
 if __name__ == '__main__':
 

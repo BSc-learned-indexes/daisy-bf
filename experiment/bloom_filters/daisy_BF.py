@@ -64,8 +64,8 @@ def calc_lower_bound(data, F, n):
         px = row["px"]
         qx = row["qx"] 
         # qx = F/n
-        qx = 1/n
-        px = 1 - (1/(10**px))
+        # qx = 1/n
+        # px = px / 400000
         num_k = choose_number_of_hash_functions(n, F, px, qx, should_print)
         should_print = False
         k_arr[num_k] += 1
@@ -83,8 +83,10 @@ def normalize_scores(pos_data, neg_data):
     score_sum = pos_data["score"].sum() + neg_data["score"].sum()
     # print(pos_data.score.unique())
     # print(neg_data.score.unique())
-    pos_data["px"] = pos_data["score"]#.div(score_sum)
-    neg_data["px"] = neg_data["score"]#.div(score_sum)
+    # pos_data["px"] = pos_data["score"].div(score_sum)
+    # neg_data["px"] = neg_data["score"].div(score_sum)
+    pos_data["px"] = pos_data["score"].div(40000)
+    neg_data["px"] = neg_data["score"].div(40000)
 
 def get_target_FPR_from_csv(path):
     data = pd.read_csv(path)
@@ -94,6 +96,7 @@ class Daisy_BloomFilter():
     def __init__(self, n, m, F) -> None:
         self.n = n
         self.m = m
+        self.F = F
         self.hash_functions = []
         self.max_hash_functions = math.ceil(math.log(1/F, 2))
         
@@ -108,7 +111,9 @@ class Daisy_BloomFilter():
             self.table[table_index] = 1
 
     """
-    lookup returns False if the element is not in the set, and True if there is a posibility of the element being in the set.
+    lookup returns:
+        False if the element is not in the setself.
+        True if there is a posibility of the element being in the set.
     """
     def lookup(self, key, px, qx):
         k_x = choose_number_of_hash_functions(self.n, self.F, px, qx)
@@ -152,47 +157,33 @@ if __name__ == '__main__':
     print(positive_data.head())
     print(negative_data.head())
 
-
-    # size_arr = []
-    # f_arr = []
-    # f_i =   0.00005
-    # max_f = 0.5
-    # step =  (max_f - f_i) / 20
-    # while f_i < max_f:
-    #     print(f"FPR: {f_i}")
-    #     size = calc_filter_size_from_target_FPR(positive_data, f_i, len(positive_data))
-    #     # size = calc_filter_size_from_target_FPR(pd.concat([positive_data, negative_data]), f_i, len(positive_data))
-    #     print(f"size: {size}")
-    #     size_arr.append(size / 1000)
-    #     f_arr.append(f_i)
-    #     f_i += step
-    #
-    # print(f"size_arr: {size_arr}")
-    # print(f"FPR_arr: {f_arr}")
-    # mem_arr = []
-    # FPR_arr = []
     mem_arr = []
-    FPR_arr = get_target_FPR_from_csv(FPR_PATH)
-    # FPR_arr = [0.0012668552487721918,
-    #         0.0008850632559915312,
-    #         0.0008214312571947544,
-    #         0.0007404450769079476,
-    #         0.0007173061682545742,
-    #         0.0006999519867645443,
-    #         0.000685490168856186,
-    #         0.0006536741694577975,
-    #         0.0006392123515494392,]
+    FPR_target_arr = get_target_FPR_from_csv(FPR_PATH)
+    FPR_lookup_arr = []
 
-    for f_i in FPR_arr:
-        print(f"FPR: {f_i}")
+    for f_i in FPR_target_arr:
+        print(f"Target FPR: {f_i}")
+        #find size, m, to allocate to the standard bloom filter.
         size = calc_filter_size_from_target_FPR(positive_data, f_i, len(positive_data))
-        # size = calc_filter_size_from_target_FPR(pd.concat([positive_data, negative_data]), f_i, len(positive_data))
         print(f"size: {size}")
         mem_arr.append(size + MODEL_SIZE)
+
+        daisy = Daisy_BloomFilter(len(positive_data), size, f_i)
+        for _, row in positive_data.iterrows():
+            daisy.insert(row["url"], row["px"], row["qx"])
+
+        num_false_positive = 0
+        for _, row in negative_data.iterrows():
+            num_false_positive += daisy.test(row["url"], row["px"], row["qx"])
+
+        FPR_lookups = num_false_positive / len(negative_data)
+        print(f"Actual FPR: {FPR_lookups}")
+        FPR_lookup_arr.append(FPR_lookups)
         
     print(f"size_arr: {mem_arr}")
-    print(f"FPR_arr: {FPR_arr}")
+    print(f"FPR_target_arr: {FPR_target_arr}")
+    print(f"FPR_lookups_arr: {FPR_lookups_arr}")
 
-    data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+    data = {"memory": mem_arr, "false_positive_rating": FPR_lookups_arr, "false_positive_target": FPR_target_arr}
     df_data = pd.DataFrame.from_dict(data=data)
     df_data.to_csv(f"{args.out_path}/daisy-BF.csv")

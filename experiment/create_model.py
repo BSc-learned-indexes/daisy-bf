@@ -57,6 +57,19 @@ if (args.model_type == "random_forest"):
     # Target Variable
     y = data['result']
 
+    keys = data[data.label == "malicious"]
+    non_keys = data[data.label == "benign"]
+    non_keys = non_keys.sample(n=len(keys))
+
+    model_data = pd.concat([keys, non_keys])
+    x = model_data[['hostname_length',
+       'path_length', 'fd_length', 'tld_length', 'count-', 'count@', 'count?',
+       'count%', 'count.', 'count=', 'count-http','count-https', 'count-www', 'count-digits',
+       'count-letters', 'count_dir', 'use_of_ip']]
+    y = model_data['result']
+
+
+
     # Splitting the data into Training and Testing
     x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=args.train_split, random_state=42)
 
@@ -90,6 +103,11 @@ if (args.model_type == "regression"):
 
 # Export data with model scores 
 # index, url, label, score (prediction)
+x = data[['hostname_length',
+       'path_length', 'fd_length', 'tld_length', 'count-', 'count@', 'count?',
+       'count%', 'count.', 'count=', 'count-http','count-https', 'count-www', 'count-digits',
+       'count-letters', 'count_dir', 'use_of_ip']]
+
 x_predictions = rfc.predict_proba(x)
 
 x_predictions_df = pd.DataFrame(x_predictions, columns=["benign_score", "malicious_score"])

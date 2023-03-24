@@ -28,73 +28,45 @@ def load_data():
     negative_sample = data.loc[(data['label']==-1)]
     return data, positive_sample, negative_sample
 
-def choose_number_of_hash_functions(n, F, px, qx, should_print=False):
-    if should_print:
-        print("--------------------")
-        print("qx: {:.20f}".format(qx))
-        print("px: {:.20f}".format(math.log(px, 10)))
-        print("px: {:.20f}".format(math.log(px, 2)))
-        print("F*px: {:.20f}".format(F*px))
-        print("1/n: {:.20f}".format(1/n))
-        print("--------------------")
-        print("(F/n): {:.20f}".format((F/n)))
-
-    if qx <= F * px or px > (1 / n): 
+def choose_number_of_hash_functions(t, F, px, qx):
+    if px > t:
         k_x = 0
-    elif F * px < qx and qx <= min(px, (F/n)):
-        k_x = math.log(1/(F*(qx/px)), 2)
-    elif qx > px and (F/n) >= px:
-        # print("**LOG 1 OVER F**")
+    elif px <= t and px >= F*t:
+        k_x = math.log((t*(1/px)), 2)
+    else:
         k_x = math.log(1/F, 2)
-    elif qx > (F/n) and ((F/n) < px and px <= 1/n):
-        k_x = math.log(1/(n*px), 2)
-    else: 
-        raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
-    
     return math.ceil(k_x)
     
-def calc_lower_bound(data, F, n):
+def calc_lower_bound(data, F, n, t):
     total = 0
-    # print(data.head())
-    standard_k = math.log((1/F), 2)
-    print(f"log(1/F): {standard_k}")
     k_arr = [0]*50
-    should_print = True
     for _, row in data.iterrows():
         px = row["px"]
         qx = row["qx"] 
-        # qx = F/n
-        # qx = 1/n
-        # px = px / 400000
-        num_k = choose_number_of_hash_functions(n, F, px, qx, should_print)
-        should_print = False
+        num_k = choose_number_of_hash_functions(t, F, px, qx)
         k_arr[num_k] += 1
-        # print(num_k, standard_k)
         total += px * num_k
     print(k_arr)
+    print(f"total: {total}")
     return n * total
 
-def calc_filter_size_from_target_FPR(data, F_target, n):
-    lower_bound = calc_lower_bound(data, F_target/6, n)
+def calc_filter_size_from_target_FPR(data, F_target, n, t):
+    lower_bound = calc_lower_bound(data, F_target/6, n, t)
     size = math.log(math.e, 2) * lower_bound
     return math.ceil(size)
 
 def normalize_scores(pos_data, neg_data):
-    score_sum = pos_data["score"].sum() + neg_data["score"].sum()
-    # print(pos_data.score.unique())
-    # print(neg_data.score.unique())
-    # pos_data["px"] = pos_data["score"].div(score_sum)
-    # neg_data["px"] = neg_data["score"].div(score_sum)
-    pos_data["px"] = pos_data["score"].div(40000)
-    neg_data["px"] = neg_data["score"].div(40000)
+    pos_data["px"] = pos_data["score"]
+    neg_data["px"] = neg_data["score"]
 
 def get_target_FPR_from_csv(path):
     data = pd.read_csv(path)
     return data['false_positive_rating'].values.tolist()
 
 class Daisy_BloomFilter():
-    def __init__(self, n, m, F) -> None:
+    def __init__(self, t, n, m, F) -> None:
         self.n = n
+        self.t = t 
         self.m = m
         self.F = F
         self.hash_functions = []
@@ -158,32 +130,49 @@ if __name__ == '__main__':
     print(negative_data.head())
 
     mem_arr = []
-    FPR_target_arr = get_target_FPR_from_csv(FPR_PATH)
+    mem_wo_model = []
+    #FPR_target_arr = get_target_FPR_from_csv(FPR_PATH)
+    #FPR_target_arr.reverse()
+    FPR_target_arr = []
+    t_arr = []
+    j = 0.0001
+    c = 0.05
+    f_i = 0.01
+    while j < 1:
+        t_arr.append(j + c)
+        FPR_target_arr.append(f_i)
+        j = 2*j
     FPR_lookup_arr = []
 
-    for f_i in FPR_target_arr:
+    for t in t_arr:
+        
+
         print(f"Target FPR: {f_i}")
-        #find size, m, to allocate to the standard bloom filter.
-        size = calc_filter_size_from_target_FPR(positive_data, f_i, len(positive_data))
+        size = calc_filter_size_from_target_FPR(positive_data, f_i, len(positive_data), t)
         print(f"size: {size}")
         mem_arr.append(size + MODEL_SIZE)
+        mem_wo_model.append(size)
 
-        daisy = Daisy_BloomFilter(len(positive_data), size, f_i)
-        for _, row in positive_data.iterrows():
-            daisy.insert(row["url"], row["px"], row["qx"])
+        if size != 0:
+            daisy = Daisy_BloomFilter(t, len(positive_data), size, f_i)
+            for _, row in positive_data.iterrows():
+                daisy.insert(row["url"], row["px"], row["qx"])
 
-        num_false_positive = 0
-        for _, row in negative_data.iterrows():
-            num_false_positive += daisy.test(row["url"], row["px"], row["qx"])
+            num_false_positive = 0
+            for _, row in negative_data.iterrows():
+                num_false_positive += daisy.test(row["url"], row["px"], row["qx"])
 
-        FPR_lookups = num_false_positive / len(negative_data)
+            FPR_lookups = num_false_positive / len(negative_data)
+        else:
+            FPR_lookups = 1
         print(f"Actual FPR: {FPR_lookups}")
         FPR_lookup_arr.append(FPR_lookups)
         
     print(f"size_arr: {mem_arr}")
     print(f"FPR_target_arr: {FPR_target_arr}")
-    print(f"FPR_lookups_arr: {FPR_lookups_arr}")
+    print(f"FPR_lookups_arr: {FPR_lookup_arr}")
 
-    data = {"memory": mem_arr, "false_positive_rating": FPR_lookups_arr, "false_positive_target": FPR_target_arr}
+    data = {"memory": mem_arr, "false_positive_rating": FPR_lookup_arr, "false_positive_target": FPR_target_arr, "t_val": t_arr, "memory_wo_model": mem_wo_model}
     df_data = pd.DataFrame.from_dict(data=data)
     df_data.to_csv(f"{args.out_path}/daisy-BF.csv")
+    print(t_arr)

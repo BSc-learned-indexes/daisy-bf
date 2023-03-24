@@ -3,6 +3,7 @@ import argparse
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import numpy as np
+from datetime import datetime
 from progress.bar import Bar
 import warnings
 warnings.filterwarnings("ignore")
@@ -40,6 +41,9 @@ plt.legend(names)
 #plt.axis((50,1550,0.0005,0.5))
 plt.xlabel('Size (Kb)')
 plt.ylabel('False Positive Rate (%)')
-plt.savefig('./graphs/final.png')
+
+now = datetime.now() # current date and time
+date_time = now.strftime("%m-%d-%Y-%H:%M:%S")
+plt.savefig(f'./graphs/fpr_size_{date_time}.png')
 
 bar.finish()

@@ -59,7 +59,7 @@ if (args.model_type == "random_forest"):
 
     keys = data[data.label == "malicious"]
     non_keys = data[data.label == "benign"]
-    non_keys = non_keys.sample(n=len(keys))
+    non_keys = non_keys.sample(n=len(keys), random_state=42)
 
     model_data = pd.concat([keys, non_keys])
     x = model_data[['hostname_length',
@@ -128,7 +128,7 @@ bar.next()
 
 # Export model metadata
 # f1, accuracy, confusion_matrix, size 
-model_size = joblib_model = os.path.getsize('./models/model.pickle')
+model_size = os.path.getsize('./models/model.pickle') * 8 
 
 model_metadata = {
     "f1": model_f1,

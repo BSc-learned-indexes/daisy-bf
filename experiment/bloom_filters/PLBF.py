@@ -55,6 +55,7 @@ elif results.model_type == "NN":
 else:
     model_size *= 8
 #R_sum = results.M_budget - model_size
+model_size = 0
 
 
 

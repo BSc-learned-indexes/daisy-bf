@@ -36,7 +36,7 @@ for name in names:
 
 #plt.plot(x, y, linestyle='dashed', marker='x')
 
-# plt.yscale("log")
+plt.yscale("log")
 plt.legend(names)
 #plt.axis((50,1550,0.0005,0.5))
 plt.xlabel('Size (Kb)')

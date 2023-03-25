@@ -39,7 +39,8 @@ num_group_min = args.min_group
 num_group_max = args.max_group
 c_min = args.c_min
 c_max = args.c_max
-model_size = os.path.getsize(args.model_path) * 8 #get it to bits instead of byte
+# model_size = os.path.getsize(args.model_path) * 8 #get it to bits instead of byte
+model_size = 0
 
 
 
@@ -94,6 +95,7 @@ def R_size(count_key, count_nonkey, R0):
 def Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, train_negative, positive_sample):
     c_set = np.arange(c_min, c_max+10**(-6), 0.1)
     FP_opt = train_negative.shape[0]
+    bloom_filter_opt = None
 
     k_min = 0
     for k_max in range(num_group_min, num_group_max+1):
@@ -144,7 +146,7 @@ def Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, t
 
             print('False positive items: %d, Number of groups: %d, c = %f' %(FP_items, k_max, round(c, 2)))
 
-            if FP_opt > FP_items:
+            if FP_opt > FP_items or bloom_filter_opt is None:
                 FP_opt = FP_items
                 bloom_filter_opt = bloom_filter
                 thresholds_opt = thresholds

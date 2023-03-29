@@ -20,7 +20,7 @@ def init_args():
     parser.add_argument('--max_iter', action="store", dest="max_iter", type=int,
                         required=False, help="max iterations to find threshold value", default=10)
     parser.add_argument('--precision', action="store", dest="precision", type=float,
-                        required=False, help="minimum precision of actual and target false positive rate", default=0.0001)
+                        required=False, help="minimum precision of actual and target false positive rate", default=0.00001)
     parser.add_argument('--within_ten_pct', action="store", dest="within_ten_pct", type=bool,
                         required=False, help="stop trying to find a new threshold if the current is within 10 \% of the target", default=True)
     parser.add_argument('--model_path', action="store", dest="model_path", type=str, required=True, help="path of the model")
@@ -142,10 +142,20 @@ if __name__ == '__main__':
     FPR_actual_arr = []
     threshold_values = []
 
+    FPR_target_arr = []
+    f = 0.8
+    for i in range(7):
+        FPR_target_arr.append(f)
+        f -= 0.1
+
     for f_i in FPR_target_arr:
         L = 0
         R = 1
         t = (R + L) / 2
+
+        best_size = None
+        closest_FPR = None
+        closest_t = None
         
         i = 0
         while max_iterations > i:
@@ -175,22 +185,28 @@ if __name__ == '__main__':
             print(f"i: {i}, t: {t}")
             print(f"actual_FPR: {actual_FPR}")
 
+            if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
+                closest_FPR = actual_FPR
+                best_size = size
+                closest_t = t
+            
+
             if actual_FPR < f_i:
                 R = t
             else:
                 L = t
             
-            if abs(actual_FPR - f_i) < precision:
+            if abs(actual_FPR - f_i) < precision or t > 0.9:
                 break
-            if abs(actual_FPR - f_i) < 0.1*f_i and within_ten_pct:
+            if abs(actual_FPR - f_i) < 0.05*f_i and within_ten_pct:
                 break
             i += 1
             
 
-        FPR_actual_arr.append(actual_FPR)
-        mem_arr.append(size)
-        threshold_values.append(t)
-        print(f"t: {t}")
+        FPR_actual_arr.append(closest_FPR)
+        mem_arr.append(best_size)
+        threshold_values.append(closest_t)
+        print(f"t: {closest_t}")
 
 
 

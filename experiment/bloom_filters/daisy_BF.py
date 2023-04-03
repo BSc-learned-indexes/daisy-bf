@@ -40,34 +40,37 @@ def load_data():
     negative_sample = data.loc[(data['label']==-1)]
     return data, positive_sample, negative_sample
 
-def k_hash(F, px, qx, u, n):
+def k_hash(F, px, qx, n):
 
-    # TODO: check this is correct
-    if px >= 1 / (u * F):
+    if qx <= F * px or px > (1 / n): 
         k_x = 0
-    elif F * px < 1 / u and 1 / u <= min(px, F / n):
-        k_x = math.log( (1 / F * u) * (1 / px), 2)
-        print(f"kx is higx wtf {k_x}")
-    else:
-        k_x = math.log(1 / F, 2)
+    elif F * px < qx and qx <= min(px, (F/n)):
+        k_x = math.log(1/(F*(qx/px)), 2)
+    elif qx > px and (F/n) >= px:
+        k_x = math.log(1/F, 2)
+    elif qx > (F/n) and ((F/n) < px and px <= 1/n):
+        k_x = math.log(1/(n*px), 2)
+    else: 
+        raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
+
     return math.ceil(k_x)
-    
-def lower_bound(data, F, n, u):
+
+def lower_bound(data, F, n):
     total = 0
     logger = defaultdict(int)
     for _, row in data.iterrows():
         px = row["px"]
         qx = row["qx"] 
-        k = k_hash(F, px, qx, u, n)
+        k = k_hash(F, px, qx, n)
         logger[k] += 1
         total += px * k
-    print(sorted(logger))
+    print(logger)
 
     return n * total
 
-def size(data, F_target, u):
+def size(data, F_target):
     n = len(data)
-    lb = lower_bound(data, F_target/6, n, u)
+    lb = lower_bound(data, F_target/6, n)
     print(lb)
     size = math.log(math.e, 2) * lb
     return math.ceil(size)
@@ -90,7 +93,6 @@ class Daisy_BloomFilter():
         self.n = n
         self.m = m
         self.F = F
-        self.u = u
         self.hash_functions = self.init_hash_functions()
         self.arr = np.zeros(m, dtype=int)
     
@@ -98,12 +100,12 @@ class Daisy_BloomFilter():
         max_hash_functions = math.ceil(math.log(1/self.F, 2))
         hash_functions = []
         for _ in range(max_hash_functions):
-            hash_functions.append(hashfunc(self.m))
+            hash_functions.append(hashfunc(self.m, 42))
         return hash_functions
     
 
     def insert(self, key, px, qx):
-        k_x = k_hash(self.F, px, qx, self.u, self.n)
+        k_x = k_hash(self.F, px, qx, self.n)
         if k_x == 0:
             return
         print(k_x)
@@ -118,7 +120,7 @@ class Daisy_BloomFilter():
         True if there is a the element is in the set (can make a false positive).
     """
     def lookup(self, key, px, qx):
-        k_x = k_hash(self.F, px, qx, self.u, self.n)
+        k_x = k_hash(self.F, px, qx, self.n)
         for i in range(k_x):
             arr_index = self.hash_functions[i](key)
             if self.arr[arr_index] == 0:
@@ -196,12 +198,12 @@ if __name__ == '__main__':
 
                 print(f"Target FPR: {f_i}")
                 n = len(positive_data)
-                size = size(positive_data, f_i, len(all_data))
-                print(f"size: {size}")
+                filter_size = size(positive_data, f_i)
+                print(f"size: {filter_size}")
 
-                if size > 2:
+                if filter_size > 2:
 
-                    daisy = Daisy_BloomFilter(n, size, f_i, len(all_data))
+                    daisy = Daisy_BloomFilter(n, filter_size, f_i, len(all_data))
                     daisy.populate(positive_data)
                     actual_FPR = daisy.get_actual_FPR(negative_data)
                 else:
@@ -212,7 +214,7 @@ if __name__ == '__main__':
 
                 if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
                     closest_FPR = actual_FPR
-                    best_size = size
+                    best_size = filter_size
                     closest_t = t
                 
 
@@ -234,7 +236,8 @@ if __name__ == '__main__':
 
     else:
         for f_i in FPR_targets:
-            filter_size = size(positive_data, f_i, len(all_data))
+            filter_size = size(positive_data, f_i)
+            print(f"size: {filter_size}")
             if filter_size > 2:
                 daisy = Daisy_BloomFilter(len(positive_data), filter_size, f_i, len(all_data))
                 daisy.populate(positive_data)

@@ -13,7 +13,7 @@ def hashfunc(m, hash_seed=None):
     ss = randint(1, 99999999)
     def hash_m(x):
         if hash_seed is None:
-            return murmurhash3_32(x,seed=ss)%m
+            return murmurhash3_32(str(x),seed=ss)%m
         else:
             #print(f"hash_seed: {hash_seed}")
             return murmurhash3_32(x,seed=hash_seed)%m
@@ -25,11 +25,8 @@ Class for Standard Bloom filter
 '''
 class BloomFilter():
     def __init__(self, n, hash_len):
-        print(n)
-        print(hash_len)
         self.n = n
         self.hash_len = int(hash_len)
-        print(self.hash_len)
         if (self.n > 0) & (self.hash_len > 0):
             self.k = max(1,int(self.hash_len/n*0.6931472))
         elif (self.n==0):
@@ -38,7 +35,6 @@ class BloomFilter():
         for i in range(self.k):
             self.h.append(hashfunc(self.hash_len, hash_seed=i))
         self.table = np.zeros(self.hash_len, dtype=np.int8)
-        print(self.table.nbytes)
     def insert(self, key):
         if self.hash_len == 0:
             raise SyntaxError('cannot insert to an empty hash table')

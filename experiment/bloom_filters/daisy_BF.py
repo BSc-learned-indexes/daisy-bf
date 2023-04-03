@@ -6,6 +6,7 @@ import math
 from progress.bar import Bar
 import os
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 def init_args():
     parser = argparse.ArgumentParser()
@@ -21,12 +22,17 @@ def init_args():
                         required=False, help="max iterations to find threshold value", default=10)
     parser.add_argument('--precision', action="store", dest="precision", type=float,
                         required=False, help="minimum precision of actual and target false positive rate", default=0.00001)
-    parser.add_argument('--within_ten_pct', action="store", dest="within_ten_pct", type=bool,
+    parser.add_argument('--WITHIN_TEN_PCT', action="store", dest="within_ten_pct", type=bool,
                         required=False, help="stop trying to find a new threshold if the current is within 10 \% of the target", default=True)
     parser.add_argument('--model_path', action="store", dest="model_path", type=str, required=True, help="path of the model")
-    parser.parse_args()
+
+    parser.add_argument('--tau', action="store", dest="tau", type=bool, required=False, default=False, help="searches for best threshold value for tau")
+
+    parser.add_argument('--normalize_scores', action="store", dest="normalize", type=bool, required=False, default=False, help="normalizes px and qx scores")
+
+
     return parser.parse_args()
-    
+
 
 def load_data():
     data = pd.read_csv(DATA_PATH)
@@ -34,77 +40,107 @@ def load_data():
     negative_sample = data.loc[(data['label']==-1)]
     return data, positive_sample, negative_sample
 
-def choose_number_of_hash_functions(t, F, px, qx):
-    if px > t:
+def k_hash(F, px, qx, u, n):
+
+    # TODO: check this is correct
+    if px >= 1 / (u * F):
         k_x = 0
-    elif px <= t and px >= F*t:
-        k_x = math.log((t*(1/px)), 2)
+    elif F * px < 1 / u and 1 / u <= min(px, F / n):
+        k_x = math.log( (1 / F * u) * (1 / px), 2)
+        print(f"kx is higx wtf {k_x}")
     else:
-        k_x = math.log(1/F, 2)
+        k_x = math.log(1 / F, 2)
     return math.ceil(k_x)
     
-def calc_lower_bound(data, F, n, t):
+def lower_bound(data, F, n, u):
     total = 0
-    k_arr = [0]*20
+    logger = defaultdict(int)
     for _, row in data.iterrows():
         px = row["px"]
         qx = row["qx"] 
-        num_k = choose_number_of_hash_functions(t, F, px, qx)
-        k_arr[num_k] += 1
-        total += px * num_k
-    print(k_arr)
+        k = k_hash(F, px, qx, u, n)
+        logger[k] += 1
+        total += px * k
+    print(sorted(logger))
+
     return n * total
 
-def calc_filter_size_from_target_FPR(data, F_target, n, t):
-    lower_bound = calc_lower_bound(data, F_target/6, n, t)
-    size = math.log(math.e, 2) * lower_bound
+def size(data, F_target, u):
+    n = len(data)
+    lb = lower_bound(data, F_target/6, n, u)
+    print(lb)
+    size = math.log(math.e, 2) * lb
     return math.ceil(size)
 
-def normalize_scores(pos_data, neg_data):
-    pos_data["px"] = pos_data["score"]
-    neg_data["px"] = neg_data["score"]
+def normalize_scores(pos_data, neg_data, normalize):
+    if normalize:
+        score_sum = pos_data["score"].sum() + neg_data["score"].sum()
+        pos_data["px"] = pos_data["score"].div(score_sum)
+        neg_data["px"] = neg_data["score"].div(score_sum)
+    else: 
+        pos_data["px"] = pos_data["score"]
+        neg_data["px"] = neg_data["score"]
 
-def get_target_FPR_from_csv(path):
+def get_target_actual_FPR_from_csv(path):
     data = pd.read_csv(path)
     return data['false_positive_rating'].values.tolist()
 
 class Daisy_BloomFilter():
-    def __init__(self, t, n, m, F) -> None:
+    def __init__(self, n, m, F, u) -> None:
         self.n = n
-        self.t = t 
         self.m = m
         self.F = F
-        self.hash_functions = []
-        self.max_hash_functions = math.ceil(math.log(1/F, 2))
-        
-        for _ in range(self.max_hash_functions):
-            self.hash_functions.append(hashfunc(self.m))
-        self.table = np.zeros(self.m, dtype=int)
+        self.u = u
+        self.hash_functions = self.init_hash_functions()
+        self.arr = np.zeros(m, dtype=int)
+    
+    def init_hash_functions(self):
+        max_hash_functions = math.ceil(math.log(1/self.F, 2))
+        hash_functions = []
+        for _ in range(max_hash_functions):
+            hash_functions.append(hashfunc(self.m))
+        return hash_functions
+    
 
     def insert(self, key, px, qx):
-        k_x = choose_number_of_hash_functions(self.t, self.F, px, qx)
+        k_x = k_hash(self.F, px, qx, self.u, self.n)
+        if k_x == 0:
+            return
+        print(k_x)
+        print(len(self.hash_functions))
         for i in range(k_x):
-            table_index = self.hash_functions[i](key)
-            self.table[table_index] = 1
+            arr_index = self.hash_functions[i](key)
+            self.arr[arr_index] = 1
 
     """
     lookup returns:
-        False if the element is not in the setself.
-        True if there is a posibility of the element being in the set.
+        False if the element is not in the set.
+        True if there is a the element is in the set (can make a false positive).
     """
     def lookup(self, key, px, qx):
-        k_x = choose_number_of_hash_functions(self.t, self.F, px, qx)
+        k_x = k_hash(self.F, px, qx, self.u, self.n)
         for i in range(k_x):
-            table_index = self.hash_functions[i](key)
-            if self.table[table_index] == 0:
+            arr_index = self.hash_functions[i](key)
+            if self.arr[arr_index] == 0:
                 return False
         return True
 
-    def test(self, key, px, qx):
+    def eval_lookup(self, key, px, qx):
         if self.lookup(key, px, qx):
             return 1
         else:
             return 0
+        
+    def get_actual_FPR(self, data):
+        total = 0
+        for _, row in data.iterrows():
+            total += self.eval_lookup(row["url"], row["px"], row["qx"])
+        return total / len(data)
+    
+
+    def populate(self, data):
+        for _, row in data.iterrows():
+            self.insert(row["url"], row["px"], row["qx"])
 
 if __name__ == '__main__':
 
@@ -114,9 +150,11 @@ if __name__ == '__main__':
     OUT_PATH = args.out_path
     CONST_QX = args.const_qx
     MODEL_SIZE = os.path.getsize(args.model_path) * 8
-    precision = args.precision
-    max_iterations = args.max_iter
-    within_ten_pct = args.within_ten_pct
+    PRECISION = args.precision
+    MAX_ITERATIONS = args.max_iter
+    WITHIN_TEN_PCT = args.within_ten_pct
+    TAU = args.tau
+    NORMALIZE_SCORES = args.normalize
 
     #Progress bar 
     # bar = Bar('Creating Daisy-BF', max=math.ceil((args.max_size - args.min_size)/args.step))
@@ -132,89 +170,87 @@ if __name__ == '__main__':
         negative_data["qx"] = qx 
         print(f"qx is set to be constant: {qx}")
     
-    normalize_scores(positive_data, negative_data)
+    normalize_scores(positive_data, negative_data, NORMALIZE_SCORES)
 
-    print(positive_data.head())
-    print(negative_data.head())
 
-    mem_arr = []
-    FPR_target_arr = get_target_FPR_from_csv(FPR_PATH)
-    FPR_actual_arr = []
+    mem_result = []
+    FPR_targets = get_target_actual_FPR_from_csv(FPR_PATH)
+    FPR_result = []
     threshold_values = []
+    
+    FPR_targets = [0.2, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01]
 
-    FPR_target_arr = []
-    f = 0.8
-    for i in range(7):
-        FPR_target_arr.append(f)
-        f -= 0.1
-
-    for f_i in FPR_target_arr:
-        L = 0
-        R = 1
-        t = (R + L) / 2
-
-        best_size = None
-        closest_FPR = None
-        closest_t = None
-        
-        i = 0
-        while max_iterations > i:
+    if TAU: 
+        for f_i in FPR_targets:
+            L = 0
+            R = 1
             t = (R + L) / 2
 
-            print(f"Target FPR: {f_i}")
-            alternative_n = len(positive_data[positive_data.px < t])
-            n = len(positive_data)
-            print(f"n: {n}, a_n: {alternative_n}")
-            size = calc_filter_size_from_target_FPR(positive_data, f_i, alternative_n, t)
-            print(f"size: {size}")
+            best_size = None
+            closest_FPR = None
+            closest_t = None
+            
+            i = 0
+            while MAX_ITERATIONS > i:
+                t = (R + L) / 2
 
-            if size > 2:
-                daisy = Daisy_BloomFilter(t, alternative_n, size, f_i)
-                for _, row in positive_data.iterrows():
-                    daisy.insert(row["url"], row["px"], row["qx"])
+                print(f"Target FPR: {f_i}")
+                n = len(positive_data)
+                size = size(positive_data, f_i, len(all_data))
+                print(f"size: {size}")
 
-                num_false_positive = 0
-                # print(negative_data.head())
-                for _, row in negative_data.iterrows():
-                    num_false_positive += daisy.test(row["url"], row["px"], row["qx"])
+                if size > 2:
 
-                actual_FPR = num_false_positive / len(negative_data)
+                    daisy = Daisy_BloomFilter(n, size, f_i, len(all_data))
+                    daisy.populate(positive_data)
+                    actual_FPR = daisy.get_actual_FPR(negative_data)
+                else:
+                    actual_FPR = 1
+
+                print(f"i: {i}, t: {t}")
+                print(f"actual_FPR: {actual_FPR}")
+
+                if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
+                    closest_FPR = actual_FPR
+                    best_size = size
+                    closest_t = t
+                
+
+                if actual_FPR < f_i:
+                    R = t
+                else:
+                    L = t
+                
+                if abs(actual_FPR - f_i) < PRECISION or t > 0.9:
+                    break
+                if abs(actual_FPR - f_i) < 0.05*f_i and WITHIN_TEN_PCT:
+                    break
+                i += 1
+        
+            FPR_result.append(closest_FPR)
+            mem_result.append(best_size)
+            threshold_values.append(closest_t)
+            print(f"t: {closest_t}")
+
+    else:
+        for f_i in FPR_targets:
+            filter_size = size(positive_data, f_i, len(all_data))
+            if filter_size > 2:
+                daisy = Daisy_BloomFilter(len(positive_data), filter_size, f_i, len(all_data))
+                daisy.populate(positive_data)
+                actual_FPR = daisy.get_actual_FPR(negative_data)
+
             else:
-                actual_FPR = 1
-
-            print(f"i: {i}, t: {t}")
-            print(f"actual_FPR: {actual_FPR}")
-
-            if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
-                closest_FPR = actual_FPR
-                best_size = size
-                closest_t = t
-            
-
-            if actual_FPR < f_i:
-                R = t
-            else:
-                L = t
-            
-            if abs(actual_FPR - f_i) < precision or t > 0.9:
-                break
-            if abs(actual_FPR - f_i) < 0.05*f_i and within_ten_pct:
-                break
-            i += 1
-            
-
-        FPR_actual_arr.append(closest_FPR)
-        mem_arr.append(best_size)
-        threshold_values.append(closest_t)
-        print(f"t: {closest_t}")
+                actual_FPR = 1 
+            FPR_result.append(actual_FPR)
+            mem_result.append(filter_size)
+            threshold_values.append(0)
 
 
+    print(f"size_arr: {mem_result}")
+    print(f"FPR_targets: {FPR_targets}")
+    print(f"FPR_result: {FPR_result}")
 
-
-    print(f"size_arr: {mem_arr}")
-    print(f"FPR_target_arr: {FPR_target_arr}")
-    print(f"FPR_actual_arr: {FPR_actual_arr}")
-
-    data = {"memory": mem_arr, "false_positive_rating": FPR_actual_arr, "false_positive_target": FPR_target_arr, "t_val": threshold_values}
+    data = {"memory": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "t_val": threshold_values}
     df_data = pd.DataFrame.from_dict(data=data)
     df_data.to_csv(f"{args.out_path}/daisy-BF.csv")

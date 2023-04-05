@@ -16,7 +16,7 @@ def hashfunc(m, hash_seed=None):
             return murmurhash3_32(str(x),seed=ss)%m
         else:
             #print(f"hash_seed: {hash_seed}")
-            return murmurhash3_32(x,seed=hash_seed)%m
+            return murmurhash3_32(str(x),seed=hash_seed)%m
     return hash_m
 
 

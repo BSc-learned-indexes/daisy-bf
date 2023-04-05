@@ -34,6 +34,12 @@ def init_args():
     return parser.parse_args()
 
 
+# WARNING: remember to change this constant!
+B = 0
+
+# WARNING: remember to change this constant!
+TAU_VAL = 0.5
+
 def load_data():
     data = pd.read_csv(DATA_PATH)
     positive_sample = data.loc[(data['label']==1)]
@@ -41,17 +47,29 @@ def load_data():
     return data, positive_sample, negative_sample
 
 def k_hash(F, px, qx, n):
-
-    if qx <= F * px or px > (1 / n): 
-        k_x = 0
-    elif F * px < qx and qx <= min(px, (F/n)):
-        k_x = math.log(1/(F*(qx/px)), 2)
-    elif qx > px and (F/n) >= px:
-        k_x = math.log(1/F, 2)
-    elif qx > (F/n) and ((F/n) < px and px <= 1/n):
-        k_x = math.log(1/(n*px), 2)
-    else: 
-        raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
+    # print(qx)
+    # qx = B * qx
+    # print(qx)
+    if TAU:
+        if px > TAU_VAL/F:
+            k_x = 0
+        elif TAU_VAL < px and px < TAU_VAL/F:
+            k_x = math.log((TAU_VAL/F)*(1/px), 2)
+        elif px < TAU_VAL:
+            k_x = math.log(1/F, 2)
+        else: 
+            raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
+    else:
+        if qx <= F * px or px > (1 / n): 
+            k_x = 0
+        elif F * px < qx and qx <= min(px, (F/n)):
+            k_x = math.log((1/F)*(qx/px), 2)
+        elif qx > px and (F/n) >= px:
+            k_x = math.log(1/F, 2)
+        elif qx > (F/n) and ((F/n) < px and px <= 1/n):
+            k_x = math.log(1/(n*px), 2)
+        else: 
+            raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
 
     return math.ceil(k_x)
 
@@ -66,7 +84,8 @@ def lower_bound(data, F, n):
         total += px * k
     print(logger)
 
-    return n * total
+    # return (n / B) * total
+    return (n ) * total
 
 def size(data, F_target):
     n = len(data)
@@ -99,20 +118,20 @@ class Daisy_BloomFilter():
     def init_hash_functions(self):
         max_hash_functions = math.ceil(math.log(1/self.F, 2))
         hash_functions = []
-        for _ in range(max_hash_functions):
-            hash_functions.append(hashfunc(self.m, 42))
+        for i in range(max_hash_functions):
+            hash_functions.append(hashfunc(self.m))
         return hash_functions
     
 
     def insert(self, key, px, qx):
         k_x = k_hash(self.F, px, qx, self.n)
         if k_x == 0:
-            return
-        print(k_x)
-        print(len(self.hash_functions))
+            return k_x
         for i in range(k_x):
             arr_index = self.hash_functions[i](key)
             self.arr[arr_index] = 1
+        return k_x
+
 
     """
     lookup returns:
@@ -141,8 +160,12 @@ class Daisy_BloomFilter():
     
 
     def populate(self, data):
+        logger = defaultdict(int)
         for _, row in data.iterrows():
-            self.insert(row["url"], row["px"], row["qx"])
+            kx = self.insert(row["url"], row["px"], row["qx"])
+            logger[kx] += 1
+        print(f"populate hash dist: {logger}")
+
 
 if __name__ == '__main__':
 
@@ -163,6 +186,11 @@ if __name__ == '__main__':
 
     all_data, positive_data, negative_data = load_data()
 
+    num_keys = int(len(negative_data)*0.01)
+    print(f"number of keys in the set: {num_keys}")
+    positive_data = positive_data.sample(n=num_keys, random_state=None)
+    all_data = pd.concat([positive_data, negative_data], ignore_index=True)
+
     # create constant qx:
     qx = 0.0
     if CONST_QX:
@@ -174,6 +202,10 @@ if __name__ == '__main__':
     
     normalize_scores(positive_data, negative_data, NORMALIZE_SCORES)
 
+    # WARNING: remember to change this constant!
+    B = positive_data["score"].sum() + negative_data["score"].sum()
+    print(f"B: {B}")
+
 
     mem_result = []
     FPR_targets = get_target_actual_FPR_from_csv(FPR_PATH)
@@ -181,12 +213,13 @@ if __name__ == '__main__':
     threshold_values = []
     
     FPR_targets = [0.2, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01]
+    FPR_targets = [0.5, 0.4, 0.3, 0.2, 0.1]
 
     if TAU: 
         for f_i in FPR_targets:
             L = 0
             R = 1
-            t = (R + L) / 2
+            TAU_VAL = (R + L) / 2
 
             best_size = None
             closest_FPR = None
@@ -194,7 +227,7 @@ if __name__ == '__main__':
             
             i = 0
             while MAX_ITERATIONS > i:
-                t = (R + L) / 2
+                TAU_VAL = (R + L) / 2
 
                 print(f"Target FPR: {f_i}")
                 n = len(positive_data)
@@ -205,27 +238,29 @@ if __name__ == '__main__':
 
                     daisy = Daisy_BloomFilter(n, filter_size, f_i, len(all_data))
                     daisy.populate(positive_data)
+                    print(f"sum of 1-bits in the array: {daisy.arr.sum()}")
+                    print(f"fraction of 1-bits in the array: {daisy.arr.sum() / len(daisy.arr)}")
                     actual_FPR = daisy.get_actual_FPR(negative_data)
                 else:
                     actual_FPR = 1
 
-                print(f"i: {i}, t: {t}")
+                print(f"i: {i}, t: {TAU_VAL}")
                 print(f"actual_FPR: {actual_FPR}")
 
                 if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
                     closest_FPR = actual_FPR
                     best_size = filter_size
-                    closest_t = t
+                    closest_t = TAU_VAL
                 
 
                 if actual_FPR < f_i:
-                    R = t
+                    R = TAU_VAL
                 else:
-                    L = t
+                    L = TAU_VAL
                 
-                if abs(actual_FPR - f_i) < PRECISION or t > 0.9:
+                if abs(actual_FPR - f_i) < PRECISION:
                     break
-                if abs(actual_FPR - f_i) < 0.05*f_i and WITHIN_TEN_PCT:
+                if abs(actual_FPR - f_i) < 0.1*f_i and WITHIN_TEN_PCT:
                     break
                 i += 1
         

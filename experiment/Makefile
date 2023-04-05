@@ -1,10 +1,10 @@
 model:
 	# @python3 url_vectorizor.py
 	# @python3 create_model.py
-	@python3 create_model.py --rfc_max_dept 4 --rfc_n_estimators 10
+	@python3 create_model.py --rfc_max_dept 2 --rfc_n_estimators 10
 	@python3 plot_distributions.py
 
-pblf:
+plbf:
 	@python3 ./bloom_filters/PLBF.py --data_path ./data/scores/syntetic_zipfean.csv --model_path ./models/model.pickle --num_group_min 2 --num_group_max 8 --min_size 10000 --max_size 200000 --step 20000
 
 standard: 

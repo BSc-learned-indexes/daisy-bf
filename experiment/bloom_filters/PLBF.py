@@ -41,8 +41,6 @@ DATA_PATH = results.data_path
 num_group_min = results.min_group
 num_group_max = results.max_group
 model_size = os.path.getsize(results.model_path)
-# print(model_size)
-# print(model_size * 8)
 if results.model_type == "SVM":
     clf = pickle.load(open(results.model_path, 'rb'))
     shape = clf['model'].support_vectors_.shape
@@ -196,7 +194,6 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
         for j in range(num_group-1):
             R[j] = int(max(1, count_key[j]/np.log(0.618)*(np.log(count_key[j]/count_nonkey[j])+c)))
         
-        # print(count_key, R)
         Bloom_Filters = []
         for j in range(int(num_group - 1)):
             if count_key[j]==0:
@@ -219,11 +216,6 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
         
         FP_items = sum(test_result) + len(ML_positive)
         FPR = FP_items/len(train_negative)
-        # print(f'Train neg len:  {len(train_negative)}')
-        # print(f'ML pos len:  {len(ML_positive)}')
-        # print(f'Test result sum:  {sum(test_result)}')
-        # print(f'False positive rate:  {FP_items/len(train_negative)}')
-        # print(f'-----------------------------------------')
         print('False positive items: {}, FPR: {} Number of groups: {}'.format(FP_items, FPR, num_group))
 
         if FP_opt > FP_items:
@@ -284,8 +276,6 @@ if __name__ == '__main__':
         i += results.step
         bar.next()
 
-    print(mem_arr)
-    print(FPR_arr)
 
     data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
     df_data = pd.DataFrame.from_dict(data=data)

@@ -17,7 +17,8 @@ parser = argparse.ArgumentParser()
 args = parser.parse_args()
 
 # Path
-data = pd.read_csv('./data/scores/exported_urls.csv')
+#data = pd.read_csv('./data/scores/exported_urls.csv')
+data = pd.read_csv('./data/scores/daisy-out.csv')
 
 
 # Define plots 

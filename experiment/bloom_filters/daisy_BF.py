@@ -3,9 +3,7 @@ import pandas as pd
 import argparse
 from Bloom_filter import hashfunc
 import math 
-from progress.bar import Bar
 import os
-import matplotlib.pyplot as plt
 from collections import defaultdict
 
 def init_args():
@@ -33,13 +31,6 @@ def init_args():
 
     return parser.parse_args()
 
-
-# WARNING: remember to change this constant!
-B = 0
-
-# WARNING: remember to change this constant!
-TAU_VAL = 0.5
-
 def load_data():
     data = pd.read_csv(DATA_PATH)
     positive_sample = data.loc[(data['label']==1)]
@@ -47,29 +38,16 @@ def load_data():
     return data, positive_sample, negative_sample
 
 def k_hash(F, px, qx, n):
-    # print(qx)
-    # qx = B * qx
-    # print(qx)
-    if TAU:
-        if px > TAU_VAL/F:
-            k_x = 0
-        elif TAU_VAL < px and px < TAU_VAL/F:
-            k_x = math.log((TAU_VAL/F)*(1/px), 2)
-        elif px < TAU_VAL:
-            k_x = math.log(1/F, 2)
-        else: 
-            raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
-    else:
-        if qx <= F * px or px > (1 / n): 
-            k_x = 0
-        elif F * px < qx and qx <= min(px, (F/n)):
-            k_x = math.log((1/F)*(qx/px), 2)
-        elif qx > px and (F/n) >= px:
-            k_x = math.log(1/F, 2)
-        elif qx > (F/n) and ((F/n) < px and px <= 1/n):
-            k_x = math.log(1/(n*px), 2)
-        else: 
-            raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
+    if qx <= F * px or px > (1 / n): 
+        k_x = 0
+    elif F * px < qx and qx <= min(px, (F/n)):
+        k_x = math.log((1/F)*(qx/px), 2)
+    elif qx > px and (F/n) >= px:
+        k_x = math.log(1/F, 2)
+    elif qx > (F/n) and ((F/n) < px and px <= 1/n):
+        k_x = math.log(1/(n*px), 2)
+    else: 
+        raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
 
     return math.ceil(k_x)
 
@@ -84,24 +62,24 @@ def lower_bound(data, F, n):
         total += px * k
     print(logger)
 
-    # return (n / B) * total
-    return (n ) * total
+    return n * total
 
-def size(data, F_target):
-    n = len(data)
+def size(data, F_target, n):
     lb = lower_bound(data, F_target/6, n)
     print(lb)
     size = math.log(math.e, 2) * lb
     return math.ceil(size)
 
-def normalize_scores(pos_data, neg_data, normalize):
+def normalize_scores(all_data, pos_data, neg_data, normalize):
     if normalize:
         score_sum = pos_data["score"].sum() + neg_data["score"].sum()
         pos_data["px"] = pos_data["score"].div(score_sum)
         neg_data["px"] = neg_data["score"].div(score_sum)
+        all_data["px"] = all_data["score"].div(score_sum)
     else: 
         pos_data["px"] = pos_data["score"]
         neg_data["px"] = neg_data["score"]
+        all_data["px"] = all_data["score"]
 
 def get_target_actual_FPR_from_csv(path):
     data = pd.read_csv(path)
@@ -143,20 +121,26 @@ class Daisy_BloomFilter():
         for i in range(k_x):
             arr_index = self.hash_functions[i](key)
             if self.arr[arr_index] == 0:
-                return False
-        return True
+                return False, k_x
+        return True, k_x
 
     def eval_lookup(self, key, px, qx):
-        if self.lookup(key, px, qx):
-            return 1
+        is_in_set, k_x = self.lookup(key, px, qx)
+        if is_in_set:
+            return 1, k_x
         else:
-            return 0
+            return 0, k_x
         
     def get_actual_FPR(self, data):
         total = 0
+        zero_k_total = 0
         for _, row in data.iterrows():
-            total += self.eval_lookup(row["url"], row["px"], row["qx"])
-        return total / len(data)
+            look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
+            total += look_up_val
+            if k_x == 0:
+                zero_k_total += 1
+            
+        return total / len(data), zero_k_total / len(data)
     
 
     def populate(self, data):
@@ -181,15 +165,16 @@ if __name__ == '__main__':
     TAU = args.tau
     NORMALIZE_SCORES = args.normalize
 
-    #Progress bar 
-    # bar = Bar('Creating Daisy-BF', max=math.ceil((args.max_size - args.min_size)/args.step))
-
     all_data, positive_data, negative_data = load_data()
 
-    num_keys = int(len(negative_data)*0.01)
-    print(f"number of keys in the set: {num_keys}")
-    positive_data = positive_data.sample(n=num_keys, random_state=None)
-    all_data = pd.concat([positive_data, negative_data], ignore_index=True)
+    score_sum = positive_data["score"].sum() + negative_data["score"].sum()
+    print(f"sum of all scores: {score_sum}")
+
+    # num_keys = int(len(negative_data)*0.01)
+    # print(f"number of keys in the set: {num_keys}")
+    # positive_data = positive_data.sample(n=num_keys, random_state=None)
+    # all_data = pd.concat([positive_data, negative_data], ignore_index=True)
+    # all_data.to_csv("./data/scores/daisy-out.csv")
 
     # create constant qx:
     qx = 0.0
@@ -200,7 +185,8 @@ if __name__ == '__main__':
         negative_data["qx"] = qx 
         print(f"qx is set to be constant: {qx}")
     
-    normalize_scores(positive_data, negative_data, NORMALIZE_SCORES)
+    normalize_scores(all_data, positive_data, negative_data, NORMALIZE_SCORES)
+
 
     # WARNING: remember to change this constant!
     B = positive_data["score"].sum() + negative_data["score"].sum()
@@ -211,84 +197,71 @@ if __name__ == '__main__':
     FPR_targets = get_target_actual_FPR_from_csv(FPR_PATH)
     FPR_result = []
     threshold_values = []
+    pct_from_zero_hash_func = []
+    bits_set_arr = []
     
     FPR_targets = [0.2, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01]
-    FPR_targets = [0.5, 0.4, 0.3, 0.2, 0.1]
+    # FPR_targets = [0.04, 0.03, 0.02, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
+    # FPR_targets = [0.5, 0.4, 0.3, 0 .2, 0.1]
+    # FPR_targets = [0.5, 0.4]
 
-    if TAU: 
-        for f_i in FPR_targets:
-            L = 0
-            R = 1
-            TAU_VAL = (R + L) / 2
+    FPR_targets = []
+    tmp = 0.5
+    for i in range(7):
+        FPR_targets.append(tmp)
+        tmp /= 2
 
-            best_size = None
-            closest_FPR = None
-            closest_t = None
-            
-            i = 0
-            while MAX_ITERATIONS > i:
-                TAU_VAL = (R + L) / 2
+    print(FPR_targets)
+    FPR_targets = [0.0000001]
 
-                print(f"Target FPR: {f_i}")
-                n = len(positive_data)
-                filter_size = size(positive_data, f_i)
-                print(f"size: {filter_size}")
-
-                if filter_size > 2:
-
-                    daisy = Daisy_BloomFilter(n, filter_size, f_i, len(all_data))
-                    daisy.populate(positive_data)
-                    print(f"sum of 1-bits in the array: {daisy.arr.sum()}")
-                    print(f"fraction of 1-bits in the array: {daisy.arr.sum() / len(daisy.arr)}")
-                    actual_FPR = daisy.get_actual_FPR(negative_data)
-                else:
-                    actual_FPR = 1
-
-                print(f"i: {i}, t: {TAU_VAL}")
-                print(f"actual_FPR: {actual_FPR}")
-
-                if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
-                    closest_FPR = actual_FPR
-                    best_size = filter_size
-                    closest_t = TAU_VAL
-                
-
-                if actual_FPR < f_i:
-                    R = TAU_VAL
-                else:
-                    L = TAU_VAL
-                
-                if abs(actual_FPR - f_i) < PRECISION:
-                    break
-                if abs(actual_FPR - f_i) < 0.1*f_i and WITHIN_TEN_PCT:
-                    break
-                i += 1
+    for f_i in FPR_targets:
+        best_size = None
+        closest_FPR = None
+        closest_t = None
+        zero_hash_pct = None
+        num_bits_set = None
         
-            FPR_result.append(closest_FPR)
-            mem_result.append(best_size)
-            threshold_values.append(closest_t)
-            print(f"t: {closest_t}")
+        i = 0
+        print(f"Target FPR: {f_i}")
+        n = len(positive_data)
+        filter_size = size(all_data, f_i, n)
+        print(f"size: {filter_size}")
 
-    else:
-        for f_i in FPR_targets:
-            filter_size = size(positive_data, f_i)
-            print(f"size: {filter_size}")
-            if filter_size > 2:
-                daisy = Daisy_BloomFilter(len(positive_data), filter_size, f_i, len(all_data))
-                daisy.populate(positive_data)
-                actual_FPR = daisy.get_actual_FPR(negative_data)
+        if filter_size > 2:
 
-            else:
-                actual_FPR = 1 
-            FPR_result.append(actual_FPR)
-            mem_result.append(filter_size)
-            threshold_values.append(0)
+            daisy = Daisy_BloomFilter(n, filter_size, f_i, len(all_data))
+            daisy.populate(positive_data)
+            bits_set = daisy.arr.sum()
+            print(f"sum of 1-bits in the array: {bits_set}")
+            print(f"fraction of 1-bits in the array: {bits_set / len(daisy.arr)}")
+            actual_FPR, FPR_from_zero_k = daisy.get_actual_FPR(negative_data)
 
+        else:
+            actual_FPR = 1
+            FPR_from_zero_k = len(negative_data)
+            bits_set = 0
+
+        print(f"i: {i}, t: {TAU_VAL}")
+        print(f"actual_FPR: {actual_FPR}")
+
+        if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
+            closest_FPR = actual_FPR
+            best_size = filter_size
+            closest_t = TAU_VAL
+            zero_hash_pct = FPR_from_zero_k
+            num_bits_set = bits_set
+
+        FPR_result.append(closest_FPR)
+        mem_result.append(best_size)
+        pct_from_zero_hash_func.append(zero_hash_pct)
+        threshold_values.append(closest_t)
+        bits_set_arr.append(num_bits_set)
+        print(f"t: {closest_t}")
 
     print(f"size_arr: {mem_result}")
     print(f"FPR_targets: {FPR_targets}")
     print(f"FPR_result: {FPR_result}")
 
-    data = {"memory": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "t_val": threshold_values}
+    data = {"memory": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "t_val": threshold_values, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr}
     df_data = pd.DataFrame.from_dict(data=data)
     df_data.to_csv(f"{args.out_path}/daisy-BF.csv")

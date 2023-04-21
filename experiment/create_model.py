@@ -115,7 +115,7 @@ x_predictions_df = pd.DataFrame(x_predictions, columns=["benign_score", "malicio
 
 export = data[["url"]].copy()
 export["label"] = data["result"]
-export["score"] = x_predictions_df["malicious_score"].round(4)
+export["score"] = x_predictions_df["malicious_score"].round(15)
 export["label"] = export["label"].replace([0], -1)
 export.to_csv('./data/scores/exported_urls.csv', index=False)
 

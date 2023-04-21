@@ -33,6 +33,8 @@ def init_args():
 
 def load_data():
     data = pd.read_csv(DATA_PATH)
+    set_px(data, NORMALIZE_SCORES)
+    set_qx(data, CONST_QX)
     positive_sample = data.loc[(data['label']==1)]
     negative_sample = data.loc[(data['label']==-1)]
     return data, positive_sample, negative_sample
@@ -51,42 +53,60 @@ def k_hash(F, px, qx, n):
 
     return math.ceil(k_x)
 
-def lower_bound(data, F, n):
+def lower_bound(positive_data, negative_data, F, n):
     total = 0
-    logger = defaultdict(int)
-    for _, row in data.iterrows():
+    log_k_positive_size_dict = defaultdict(int)
+    log_k_negative_size_dict = defaultdict(int)
+    for _, row in positive_data.iterrows():
         px = row["px"]
         qx = row["qx"] 
         k = k_hash(F, px, qx, n)
-        logger[k] += 1
+        if k < 0:
+            print(f"NEGATIVE VALUE!!! {k} **************************************************************")
+        log_k_positive_size_dict[k] += 1
         total += px * k
-    print(logger)
+    print(log_k_positive_size_dict)
+    for _, row in negative_data.iterrows():
+        px = row["px"]
+        qx = row["qx"] 
+        k = k_hash(F, px, qx, n)
+        if k < 0:
+            print(f"NEGATIVE VALUE!!! {k} **************************************************************")
+        log_k_negative_size_dict[k] += 1
+        total += px * k
+    print(log_k_negative_size_dict)
 
-    return n * total
+    return n * total, log_k_positive_size_dict, log_k_negative_size_dict
 
-def size(data, F_target, n):
-    lb = lower_bound(data, F_target/6, n)
+def size(positive_data, negative_data, F_target, n):
+    lb, log_k_positive_size_dict, log_k_negative_size_dict = lower_bound(positive_data, negative_data, F_target/6, n)
     print(lb)
     size = math.log(math.e, 2) * lb
-    return math.ceil(size)
+    return math.ceil(size), log_k_positive_size_dict, log_k_negative_size_dict
 
-def normalize_scores(all_data, pos_data, neg_data, normalize):
+def set_px(data, normalize):
     if normalize:
-        score_sum = pos_data["score"].sum() + neg_data["score"].sum()
-        pos_data["px"] = pos_data["score"].div(score_sum)
-        neg_data["px"] = neg_data["score"].div(score_sum)
-        all_data["px"] = all_data["score"].div(score_sum)
+        score_sum = data["score"].sum()
+        print(f"normalizing the scores by dividing with score sum: {score_sum}")
+        data["px"] = data["score"].div(score_sum)
     else: 
-        pos_data["px"] = pos_data["score"]
-        neg_data["px"] = neg_data["score"]
-        all_data["px"] = all_data["score"]
+        data["px"] = data["score"]
+
+def set_qx(data, const_qx):
+    if const_qx:
+        qx = 1 / len(data)
+        data["qx"] = qx 
+        print(f"qx is set to be constant: {qx}")
+    else:
+        raise Exception(f"Not having a constant qx value is not implemented!")
+
 
 def get_target_actual_FPR_from_csv(path):
     data = pd.read_csv(path)
     return data['false_positive_rating'].values.tolist()
 
 class Daisy_BloomFilter():
-    def __init__(self, n, m, F, u) -> None:
+    def __init__(self, n, m, F) -> None:
         self.n = n
         self.m = m
         self.F = F
@@ -96,7 +116,7 @@ class Daisy_BloomFilter():
     def init_hash_functions(self):
         max_hash_functions = math.ceil(math.log(1/self.F, 2))
         hash_functions = []
-        for i in range(max_hash_functions):
+        for _ in range(max_hash_functions):
             hash_functions.append(hashfunc(self.m))
         return hash_functions
     
@@ -132,15 +152,17 @@ class Daisy_BloomFilter():
             return 0, k_x
         
     def get_actual_FPR(self, data):
+        k_lookup_dict = defaultdict(int)
         total = 0
         zero_k_total = 0
         for _, row in data.iterrows():
             look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
             total += look_up_val
+            k_lookup_dict[k_x] += 1
             if k_x == 0:
                 zero_k_total += 1
             
-        return total / len(data), zero_k_total / len(data)
+        return total / len(data), zero_k_total / len(data), k_lookup_dict
     
 
     def populate(self, data):
@@ -149,6 +171,7 @@ class Daisy_BloomFilter():
             kx = self.insert(row["url"], row["px"], row["qx"])
             logger[kx] += 1
         print(f"populate hash dist: {logger}")
+        return logger
 
 
 if __name__ == '__main__':
@@ -165,10 +188,7 @@ if __name__ == '__main__':
     TAU = args.tau
     NORMALIZE_SCORES = args.normalize
 
-    all_data, positive_data, negative_data = load_data()
-
-    score_sum = positive_data["score"].sum() + negative_data["score"].sum()
-    print(f"sum of all scores: {score_sum}")
+    data, positive_data, negative_data = load_data()
 
     # num_keys = int(len(negative_data)*0.01)
     # print(f"number of keys in the set: {num_keys}")
@@ -176,92 +196,111 @@ if __name__ == '__main__':
     # all_data = pd.concat([positive_data, negative_data], ignore_index=True)
     # all_data.to_csv("./data/scores/daisy-out.csv")
 
-    # create constant qx:
-    qx = 0.0
-    if CONST_QX:
-        qx = 1 / (len(negative_data) + len(positive_data))
-        all_data["qx"] = qx 
-        positive_data["qx"] = qx 
-        negative_data["qx"] = qx 
-        print(f"qx is set to be constant: {qx}")
-    
-    normalize_scores(all_data, positive_data, negative_data, NORMALIZE_SCORES)
-
-
-    # WARNING: remember to change this constant!
-    B = positive_data["score"].sum() + negative_data["score"].sum()
-    print(f"B: {B}")
-
-
     mem_result = []
     FPR_targets = get_target_actual_FPR_from_csv(FPR_PATH)
     FPR_result = []
     threshold_values = []
     pct_from_zero_hash_func = []
     bits_set_arr = []
+    pct_bits_set_arr = []
+
+    log_k_positive_size_arr = []
+    log_k_negative_size_arr = []
+    insert_k_arr = []
+    lookup_k_arr = []
     
-    FPR_targets = [0.2, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01]
+    # FPR_targets = [0.2, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01]
     # FPR_targets = [0.04, 0.03, 0.02, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
     # FPR_targets = [0.5, 0.4, 0.3, 0 .2, 0.1]
     # FPR_targets = [0.5, 0.4]
 
     FPR_targets = []
     tmp = 0.5
-    for i in range(7):
+    while tmp > 10**(-4):
         FPR_targets.append(tmp)
         tmp /= 2
-
+    # FPR_targets.append(10**(-10))
+    # FPR_targets.append(10**(-20))
+    FPR_targets.append(10**(-30))
     print(FPR_targets)
-    FPR_targets = [0.0000001]
+    # FPR_targets = [0.4]
 
     for f_i in FPR_targets:
         best_size = None
         closest_FPR = None
-        closest_t = None
         zero_hash_pct = None
         num_bits_set = None
         
-        i = 0
         print(f"Target FPR: {f_i}")
         n = len(positive_data)
-        filter_size = size(all_data, f_i, n)
+        filter_size, log_k_positive_size_dict, log_k_negative_size_dict = size(positive_data, negative_data, f_i, n)
         print(f"size: {filter_size}")
 
         if filter_size > 2:
-
-            daisy = Daisy_BloomFilter(n, filter_size, f_i, len(all_data))
-            daisy.populate(positive_data)
+            daisy = Daisy_BloomFilter(n, filter_size, f_i)
+            k_insert_dict = daisy.populate(positive_data)
             bits_set = daisy.arr.sum()
             print(f"sum of 1-bits in the array: {bits_set}")
             print(f"fraction of 1-bits in the array: {bits_set / len(daisy.arr)}")
-            actual_FPR, FPR_from_zero_k = daisy.get_actual_FPR(negative_data)
-
+            actual_FPR, FPR_from_zero_k, k_lookup_dict = daisy.get_actual_FPR(negative_data)
         else:
-            actual_FPR = 1
+            actual_FPR = 1.0
             FPR_from_zero_k = len(negative_data)
             bits_set = 0
+            k_lookup_dict = None
+            k_insert_dict = None
 
-        print(f"i: {i}, t: {TAU_VAL}")
         print(f"actual_FPR: {actual_FPR}")
 
         if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
             closest_FPR = actual_FPR
             best_size = filter_size
-            closest_t = TAU_VAL
             zero_hash_pct = FPR_from_zero_k
             num_bits_set = bits_set
 
         FPR_result.append(closest_FPR)
         mem_result.append(best_size)
         pct_from_zero_hash_func.append(zero_hash_pct)
-        threshold_values.append(closest_t)
         bits_set_arr.append(num_bits_set)
-        print(f"t: {closest_t}")
+        pct_bits_set_arr.append(num_bits_set/filter_size)
+
+        log_k_positive_size_dict["FPR_target"] = f_i
+        log_k_positive_size_dict["FPR_actual"] = actual_FPR
+        log_k_positive_size_dict["size"] = filter_size
+        log_k_positive_size_arr.append(log_k_positive_size_dict)
+
+        log_k_negative_size_dict["FPR_target"] = f_i
+        log_k_negative_size_dict["FPR_actual"] = actual_FPR
+        log_k_negative_size_dict["size"] = filter_size
+        log_k_negative_size_arr.append(log_k_negative_size_dict)
+
+        k_insert_dict["FPR_target"] = f_i
+        k_insert_dict["FPR_actual"] = actual_FPR
+        k_insert_dict["size"] = filter_size
+        insert_k_arr.append(k_insert_dict)
+
+        k_lookup_dict["FPR_target"] = f_i
+        k_lookup_dict["FPR_actual"] = actual_FPR
+        k_lookup_dict["size"] = filter_size
+        lookup_k_arr.append(k_lookup_dict)
+        
 
     print(f"size_arr: {mem_result}")
     print(f"FPR_targets: {FPR_targets}")
     print(f"FPR_result: {FPR_result}")
 
-    data = {"memory": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "t_val": threshold_values, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr}
-    df_data = pd.DataFrame.from_dict(data=data)
-    df_data.to_csv(f"{args.out_path}/daisy-BF.csv")
+    output = {"memory": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr}
+    df_out = pd.DataFrame.from_dict(data=output)
+    df_out.to_csv(f"{args.out_path}/daisy-BF.csv")
+
+    df_size_positive = pd.DataFrame.from_dict(data=log_k_positive_size_arr)
+    df_size_positive.to_csv(f"{args.out_path}/daisy-BF_k_size_positive.csv")
+
+    df_size_negative = pd.DataFrame.from_dict(data=log_k_negative_size_arr)
+    df_size_negative.to_csv(f"{args.out_path}/daisy-BF_k_size_negative.csv")
+
+    df_insert = pd.DataFrame.from_dict(data=insert_k_arr)
+    df_insert.to_csv(f"{args.out_path}/daisy-BF_k_insert.csv")
+
+    df_lookup = pd.DataFrame.from_dict(data=lookup_k_arr)
+    df_lookup.to_csv(f"{args.out_path}/daisy-BF_k_lookup.csv")

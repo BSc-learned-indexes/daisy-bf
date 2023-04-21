@@ -35,7 +35,7 @@ plt.figure(1)
 plt.hist(keys, bins=20, log=True, label='Keys')
 # x1,x2,y1,y2 = plt.axis()  
 plt.axis((0,1,0,1000000))
-plt.savefig('./distributions/img/keys.png')
+plt.savefig('./distributions/img/syntetic_zipfean_keys.png')
 
 # plt.show()
 
@@ -48,7 +48,7 @@ bins = np.linspace(0, 1, 25)
 
 plt.hist([keys, non_keys], bins, log=True, label=['Keys', 'non-Keys'])
 plt.legend(loc='upper right')
-plt.savefig('./distributions/img/keys_non_keys.png')
+plt.savefig('./distributions/img/_syntetic_zipfeankeys_non_keys.png')
 
 # Plot distribution of Non-keys 
 bar.next()
@@ -57,7 +57,7 @@ plt.figure(3)
 plt.hist(non_keys, bins=20, log=True, label='Non-keys')
 # x1,x2,y1,y2 = plt.axis()  
 plt.axis((0,1,0,1000000))
-plt.savefig('./distributions/img/non_keys.png')
+plt.savefig('./distributions/img/syntetic_zipfean_non_keys.png')
 
 
 

@@ -204,18 +204,17 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
                 Bloom_Filters[j].insert(query_group[j])
 
         ### Test querys
-        ML_positive = train_negative.loc[(train_negative['score'] >= thresholds[-2]), 'url']
         query_negative = train_negative.loc[(train_negative['score'] < thresholds[-2]), 'url']
         score_negative = train_negative.loc[(train_negative['score'] < thresholds[-2]), 'score']
 
-        test_result = np.zeros(len(query_negative))
-        ss = 0
+        ML_positive = len(train_negative[train_negative["score"] >=thresholds[-2]])
+        test_result = 0
+
         for score_s, query_s in zip(score_negative, query_negative):
             ix = min(np.where(score_s < thresholds)[0]) - 1
-            test_result[ss] = Bloom_Filters[ix].test(query_s)
-            ss += 1
+            test_result += Bloom_Filters[ix].test(query_s)
         
-        FP_items = sum(test_result) + len(ML_positive)
+        FP_items = test_result + ML_positive
         FPR = FP_items/len(train_negative)
         print('False positive items: {}, FPR: {} Number of groups: {}'.format(FP_items, FPR, num_group))
 
@@ -240,6 +239,8 @@ if __name__ == '__main__':
 
     mem_arr = []
     FPR_arr = []
+    region_negatives_arr = []
+    region_positives_arr = []
 
     i = results.min_size
     while i <= results.max_size:
@@ -251,32 +252,58 @@ if __name__ == '__main__':
 
 
 
-        '''Stage 2: Run PLBF on all the samples'''
+        '''Stage 2: Run PLBF on all the negative samples'''
         ### Test queries
-        ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
         query_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
         score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
-        test_result = np.zeros(len(query_negative))
-        ss = 0
+        
+        ### False positives from the model:
+        ML_positive = len(negative_sample[negative_sample["score"] >=thresholds_opt[-2]])
 
+        test_result = 0
         lookup_negative_logger_dict = defaultdict(int)
-
 
         for score_s, query_s in zip(score_negative, query_negative):
             ix = min(np.where(score_s < thresholds_opt)[0]) - 1
-            test_result[ss] = Bloom_Filters_opt[ix].test(query_s)
-            lookup_negative_logger_dict[ix] += 1
-            ss += 1
-        FP_items = sum(test_result) + len(ML_positive)
+            test_result += Bloom_Filters_opt[ix].test(query_s)
+            lookup_negative_logger_dict[ix + 1] += 1
+
+        FP_items = test_result + ML_positive
         FPR = FP_items/len(negative_sample)
         print('False positive items: {}; FPR: {}; Size of quries: {}'.format(FP_items, FPR, len(negative_sample)))
 
-        print(f"negative lookup dict: {lookup_negative_logger_dict}")
         print(f"test results: {test_result}")
-
+        print(f"Test results from ML-model: {ML_positive}")
+        lookup_negative_logger_dict[0] = ML_positive
+        lookup_negative_logger_dict["FPR"] = FPR
+        lookup_negative_logger_dict["size"] = i
+        print(f"negative lookup dict: {lookup_negative_logger_dict}")
 
         mem_arr.append(i)
         FPR_arr.append(FPR)
+        region_negatives_arr.append(lookup_negative_logger_dict)
+
+
+        '''Stage 3: Run PLBF on all the positve samples'''
+        ### Test queries
+        query_positive = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), 'url']
+        score_positive = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), 'score']
+
+        ### False positives from the model:
+        ML_positive = len(positive_sample[positive_sample["score"] >=thresholds_opt[-2]])
+
+        lookup_positive_logger_dict = defaultdict(int)
+
+        for score_s, query_s in zip(score_positive, query_positive):
+            ix = min(np.where(score_s < thresholds_opt)[0]) - 1
+            lookup_positive_logger_dict[ix + 1] += 1
+        lookup_positive_logger_dict[0] = ML_positive
+        lookup_positive_logger_dict["FPR"] = FPR
+        lookup_positive_logger_dict["size"] = i
+
+        print(f"positive lookup dict: {lookup_positive_logger_dict}")
+        region_positives_arr.append(lookup_positive_logger_dict)
+
 
         tmp_data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
         tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
@@ -290,6 +317,12 @@ if __name__ == '__main__':
     df_data = pd.DataFrame.from_dict(data=data)
 
     df_data.to_csv(f"{results.out_path}PLBF_mem_FPR.csv")
+
+    df_negative_regions = pd.DataFrame.from_dict(data=region_negatives_arr)
+    df_negative_regions.to_csv(f"{results.out_path}/PLBF_regions_negatives.csv")
+
+    df_positive_regions = pd.DataFrame.from_dict(data=region_positives_arr)
+    df_positive_regions.to_csv(f"{results.out_path}/PLBF_regions_positives.csv")
     bar.finish()
 
  

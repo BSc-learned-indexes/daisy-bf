@@ -5,7 +5,8 @@ import argparse
 from Bloom_filter import hashfunc
 import math 
 from progress.bar import Bar
-import os
+# import os
+from collections import defaultdict
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', action="store", dest="data_path", type=str, required=True,
@@ -123,26 +124,21 @@ def Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, t
                 ix = min(np.where(score_s < thresholds)[0])
                 k = k_max - ix
                 bloom_filter.insert(url_s, k)
-            ML_positive = train_negative.loc[(train_negative['score'] >= thresholds[-2]), 'url']
+
             url_negative = train_negative.loc[(train_negative['score'] < thresholds[-2]), 'url']
             score_negative = train_negative.loc[(train_negative['score'] < thresholds[-2]), 'score']
 
-            test_result = np.zeros(len(url_negative))
-            ss = 0
+            ### False positives from the model:
+            ML_positive = len(train_negative[train_negative["score"] >=thresholds[-2]])
+
+            test_result = 0
             for score_s, url_s in zip(score_negative, url_negative):
                 ix = min(np.where(score_s < thresholds)[0])
                 # thres = thresholds[ix]
                 k = k_max - ix
-                test_result[ss] = bloom_filter.test(url_s, k)
-                ss += 1
-            FP_items = sum(test_result) + len(ML_positive)
-
-
-            # print(f'Train neg len:  {len(train_negative)}')
-            # print(f'ML pos len:  {len(ML_positive)}')
-            # print(f'Test result sum:  {sum(test_result)}')
-            # print(f'False positive rate:  {FP_items/len(train_negative)}')
-            # print(f'-----------------------------------------')
+                test_result += bloom_filter.test(url_s, k)
+                test_result += 1
+            FP_items = test_result + ML_positive
 
             print('False positive items: %d, Number of groups: %d, c = %f' %(FP_items, k_max, round(c, 2)))
 
@@ -151,9 +147,10 @@ def Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, t
                 bloom_filter_opt = bloom_filter
                 thresholds_opt = thresholds
                 k_max_opt = k_max
+                opt_c = c
 
     # print('Optimal FPs: %f, Optimal c: %f, Optimal num_group: %d' % (FP_opt, c_opt, num_group_opt))
-    return bloom_filter_opt, thresholds_opt, k_max_opt
+    return bloom_filter_opt, thresholds_opt, k_max_opt, opt_c
 
 
 
@@ -169,6 +166,11 @@ if __name__ == '__main__':
 
     mem_arr = []
     FPR_arr = []
+    num_regions_arr = []
+    c_arr = []
+
+    region_negatives_arr = []
+    region_positives_arr = []
 
     
 
@@ -176,32 +178,67 @@ if __name__ == '__main__':
     while i <= args.max_size:
         print(f"current memory allocated: {i}")
         '''Stage 1: Find the hyper-parameters (spare 30% samples to find the parameters)'''
-        bloom_filter_opt, thresholds_opt, k_max_opt = Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, (i-model_size), train_negative, positive_sample)
+        bloom_filter_opt, thresholds_opt, k_max_opt, c_opt = Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, (i-model_size), train_negative, positive_sample)
 
 
 
         '''Stage 2: Run Ada-BF on all the samples'''
         ### Test URLs
-        ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
         url_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
         score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
-        test_result = np.zeros(len(url_negative))
-        ss = 0
+
+        ### False positives from the model:
+        ML_positive = len(negative_sample[negative_sample["score"] >=thresholds_opt[-2]])
+
+        test_result = 0
+        lookup_negative_logger_dict = defaultdict(int)
+
         for score_s, url_s in zip(score_negative, url_negative):
             ix = min(np.where(score_s < thresholds_opt)[0])
             # thres = thresholds[ix]
             k = k_max_opt - ix
-            test_result[ss] = bloom_filter_opt.test(url_s, k)
-            ss += 1
-        FP_items = sum(test_result) + len(ML_positive)
+            test_result += bloom_filter_opt.test(url_s, k)
+            lookup_negative_logger_dict[k] += 1
+
+        FP_items = test_result + ML_positive
         FPR = FP_items / len(negative_sample)
         print('False positive items: %d' % FP_items)
-        print('False positive rate: %d' % FPR)
+        print('False positive rate: %f' % FPR)
 
+        lookup_negative_logger_dict[0] = ML_positive
+        lookup_negative_logger_dict["FPR"] = FPR
+        lookup_negative_logger_dict["size"] = i
+        print(f"negative lookup dict: {lookup_negative_logger_dict}")
 
 
         mem_arr.append(i)
         FPR_arr.append(FPR)
+        num_regions_arr.append(k_max_opt)
+        c_arr.append(c_opt)
+        region_negatives_arr.append(lookup_negative_logger_dict)
+
+        '''Stage 3: Run PLBF on all the positve samples'''
+        ### Test queries
+        query_positive = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), 'url']
+        score_positive = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), 'score']
+
+        ### False positives from the model:
+        ML_positive = len(positive_sample[positive_sample["score"] >=thresholds_opt[-2]])
+
+        lookup_positive_logger_dict = defaultdict(int)
+
+        for score_s, query_s in zip(score_positive, query_positive):
+            ix = min(np.where(score_s < thresholds_opt)[0])
+            # thres = thresholds[ix]
+            k = k_max_opt - ix
+            lookup_positive_logger_dict[k] += 1
+
+        lookup_positive_logger_dict[0] = ML_positive
+        lookup_positive_logger_dict["FPR"] = FPR
+        lookup_positive_logger_dict["size"] = i
+
+        print(f"positive lookup dict: {lookup_positive_logger_dict}")
+        region_positives_arr.append(lookup_positive_logger_dict)
 
         tmp_data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
         tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
@@ -213,33 +250,14 @@ if __name__ == '__main__':
     print(mem_arr)
     print(FPR_arr)
 
-    data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+    data = {"memory": mem_arr, "false_positive_rating": FPR_arr, "num_regions": num_regions_arr, "optimal_c": c_arr}
     df_data = pd.DataFrame.from_dict(data=data)
 
     df_data.to_csv(f"{args.out_path}Ada-BF.csv")
+
+    df_negative_regions = pd.DataFrame.from_dict(data=region_negatives_arr)
+    df_negative_regions.to_csv(f"{args.out_path}/ADA-BF_regions_negatives.csv")
+
+    df_positive_regions = pd.DataFrame.from_dict(data=region_positives_arr)
+    df_positive_regions.to_csv(f"{args.out_path}/ADA-BF_regions_positives.csv")
     bar.finish()
-
- 
-
-
-
-
-    # '''Stage 1: Find the hyper-parameters (spare 30% samples to find the parameters)'''
-    # bloom_filter_opt, thresholds_opt, k_max_opt = Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, train_negative, positive_sample)
-
-    # '''Stage 2: Run Ada-BF on all the samples'''
-    # ### Test URLs
-    # ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
-    # url_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
-    # score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
-    # test_result = np.zeros(len(url_negative))
-    # ss = 0
-    # for score_s, url_s in zip(score_negative, url_negative):
-    #     ix = min(np.where(score_s < thresholds_opt)[0])
-    #     # thres = thresholds[ix]
-    #     k = k_max_opt - ix
-    #     test_result[ss] = bloom_filter_opt.test(url_s, k)
-    #     ss += 1
-    # FP_items = sum(test_result) + len(ML_positive)
-    # print('False positive items: %d' % FP_items)
-

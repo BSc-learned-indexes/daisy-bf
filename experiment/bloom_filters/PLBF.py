@@ -11,6 +11,7 @@ import pickle
 from Bloom_filter import BloomFilter
 from progress.bar import Bar
 import math
+from collections import defaultdict
 
 
 parser = argparse.ArgumentParser()
@@ -229,7 +230,7 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
 
 
 '''
-Implement disjoint Ada-BF
+Implement PLBF
 '''
 if __name__ == '__main__':
 
@@ -250,20 +251,28 @@ if __name__ == '__main__':
 
 
 
-        '''Stage 2: Run Ada-BF on all the samples'''
+        '''Stage 2: Run PLBF on all the samples'''
         ### Test queries
         ML_positive = negative_sample.loc[(negative_sample['score'] >= thresholds_opt[-2]), 'url']
         query_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
         score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
         test_result = np.zeros(len(query_negative))
         ss = 0
+
+        lookup_negative_logger_dict = defaultdict(int)
+
+
         for score_s, query_s in zip(score_negative, query_negative):
             ix = min(np.where(score_s < thresholds_opt)[0]) - 1
             test_result[ss] = Bloom_Filters_opt[ix].test(query_s)
+            lookup_negative_logger_dict[ix] += 1
             ss += 1
         FP_items = sum(test_result) + len(ML_positive)
         FPR = FP_items/len(negative_sample)
         print('False positive items: {}; FPR: {}; Size of quries: {}'.format(FP_items, FPR, len(negative_sample)))
+
+        print(f"negative lookup dict: {lookup_negative_logger_dict}")
+        print(f"test results: {test_result}")
 
 
         mem_arr.append(i)

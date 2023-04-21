@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 # Path
 #data = pd.read_csv('./data/scores/exported_urls.csv')
-data = pd.read_csv('./data/scores/daisy-out.csv')
+data = pd.read_csv('./data/scores/syntetic_zipfean.csv')
 
 
 # Define plots 

@@ -137,7 +137,6 @@ def Find_Optimal_Parameters(c_min, c_max, num_group_min, num_group_max, R_sum, t
                 # thres = thresholds[ix]
                 k = k_max - ix
                 test_result += bloom_filter.test(url_s, k)
-                test_result += 1
             FP_items = test_result + ML_positive
 
             print('False positive items: %d, Number of groups: %d, c = %f' %(FP_items, k_max, round(c, 2)))

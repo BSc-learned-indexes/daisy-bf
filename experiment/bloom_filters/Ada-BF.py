@@ -1,11 +1,9 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import argparse
 from Bloom_filter import hashfunc
 import math 
 from progress.bar import Bar
-# import os
 from collections import defaultdict
 
 parser = argparse.ArgumentParser()
@@ -65,7 +63,7 @@ class Ada_BloomFilter():
         self.n = n
         self.hash_len = int(hash_len)
         self.h = []
-        for i in range(int(k_max)):
+        for _ in range(int(k_max)):
             self.h.append(hashfunc(self.hash_len))
         self.table = np.zeros(self.hash_len, dtype=int)
     def insert(self, key, k):
@@ -225,7 +223,7 @@ if __name__ == '__main__':
         c_arr.append(c_opt)
         region_negatives_arr.append(lookup_negative_logger_dict)
 
-        '''Stage 3: Run PLBF on all the positive samples'''
+        '''Stage 3: Test all the positive samples'''
         lookup_positive_logger_dict = defaultdict(int)
 
         if Q_dist:

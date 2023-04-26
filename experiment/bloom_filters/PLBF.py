@@ -1,11 +1,7 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import argparse
-from Bloom_filter import hashfunc
 import os
-from scipy.optimize import fsolve
-from scipy import optimize
 import argparse
 import pickle
 from Bloom_filter import BloomFilter

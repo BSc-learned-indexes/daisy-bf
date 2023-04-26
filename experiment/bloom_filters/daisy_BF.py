@@ -28,7 +28,7 @@ def init_args():
 
     parser.add_argument('--normalize_scores', action="store", dest="normalize", type=bool, required=False, default=False, help="normalizes px and qx scores")
 
-    parser.add_argument('--use_Q_dist', action="store", dest="use_Q_dist", type=bool, required=False, default=False, help="uses q_dist for daisy")
+    parser.add_argument('--Q_dist', action="store", dest="Q_dist", type=bool, required=False, default=False, help="uses q_dist for daisy")
 
 
 
@@ -103,8 +103,8 @@ def set_px(data, normalize):
     else: 
         data["px"] = data["score"]
 
-def set_qx(data, const_qx, use_Q_dist):
-    if const_qx and not use_Q_dist:
+def set_qx(data, const_qx, Q_dist):
+    if const_qx and not Q_dist:
         qx = 1 / len(data)
         data["qx"] = qx 
         print(f"qx is set to be constant: {qx}")
@@ -166,26 +166,27 @@ class Daisy_BloomFilter():
         else:
             return 0, k_x
         
-    def get_actual_FPR(self, data, use_Q_dist):
+    def get_actual_FPR(self, data, Q_dist):
+        n_queries = 0
         k_lookup_dict = defaultdict(int)
         total = 0
         zero_k_total = 0
         for _, row in data.iterrows():
-            if use_Q_dist:
-                for _ in range(int(row["query_count"])):
-                    look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
-                    total += look_up_val
-                    k_lookup_dict[k_x] += 1
-                    if k_x == 0:
-                        zero_k_total += 1
+            n_queries += int(row["query_count"])
+            look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
+            if Q_dist:
+                n_queried = int(row["query_count"])
+                total += look_up_val * n_queried
+                k_lookup_dict[k_x] += n_queried
+                if k_x == 0:
+                    zero_k_total += n_queried
             else: 
-                look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
                 total += look_up_val
                 k_lookup_dict[k_x] += 1
                 if k_x == 0:
                     zero_k_total += 1
             
-        return total / len(data), zero_k_total / len(data), k_lookup_dict
+        return total / n_queries, zero_k_total / n_queries, k_lookup_dict
     
 
     def populate(self, data):
@@ -210,7 +211,7 @@ if __name__ == '__main__':
     WITHIN_TEN_PCT = args.within_ten_pct
     TAU = args.tau
     NORMALIZE_SCORES = args.normalize
-    USE_Q_DIST = args.use_Q_dist
+    USE_Q_DIST = args.Q_dist
 
     data, positive_data, negative_data = load_data()
 

@@ -30,6 +30,8 @@ parser.add_argument('--step', action="store", dest="step", type=int, default = 5
                     help="amount of memory to step for each")
 parser.add_argument('--out_path', action="store", dest="out_path", type=str,
                     required=False, help="path of the output", default="./data/plots/")
+parser.add_argument('--Q_dist', action="store", dest="Q_dist", type=bool, required=False, default=False, help="uses q_dist for daisy")
+
 
 
 
@@ -42,6 +44,7 @@ c_min = args.c_min
 c_max = args.c_max
 # model_size = os.path.getsize(args.model_path) * 8 #get it to bits instead of byte
 model_size = 0
+Q_dist = args.Q_dist
 
 
 
@@ -56,7 +59,13 @@ model_size = 0
 '''
 Load the data and select training data
 '''
-data = pd.read_csv(DATA_PATH)
+if (Q_dist):
+    splitted = DATA_PATH.split(".csv")
+    data_path = splitted[0] + "_with_qx.csv"
+    print(data_path)
+else:
+    data_path = DATA_PATH
+data = pd.read_csv(data_path)
 negative_sample = data.loc[(data['label']==-1)]
 positive_sample = data.loc[(data['label']==1)]
 train_negative = negative_sample.sample(frac = 0.3)
@@ -183,24 +192,40 @@ if __name__ == '__main__':
 
         '''Stage 2: Run Ada-BF on all the samples'''
         ### Test URLs
-        url_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'url']
-        score_negative = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), 'score']
-
-        ### False positives from the model:
-        ML_positive = len(negative_sample[negative_sample["score"] >=thresholds_opt[-2]])
-
         test_result = 0
         lookup_negative_logger_dict = defaultdict(int)
+        ML_positive = 0
+        sum_n_queried = 0
 
-        for score_s, url_s in zip(score_negative, url_negative):
-            ix = min(np.where(score_s < thresholds_opt)[0])
-            # thres = thresholds[ix]
-            k = k_max_opt - ix
-            test_result += bloom_filter_opt.test(url_s, k)
-            lookup_negative_logger_dict[k] += 1
+        for _, row in negative_sample.iterrows():
+            if row["score"] >= thresholds_opt[-2]:
+                # We know it's a positive from the ML model
+                if Q_dist:
+                    n_queried = int(row["query_count"])
+                    sum_n_queried += n_queried
+                    ML_positive += n_queried
+                else:    
+                    ML_positive += 1 
+            else: 
+                # We test if its a positive from the bloom filter
+                ix = min(np.where(row["score"] < thresholds_opt)[0])
+                k = k_max_opt - ix
+                if Q_dist:
+                    n_queried = int(row["query_count"])
+                    sum_n_queried += n_queried
+                    test_result += bloom_filter_opt.test(row["url"], k) * n_queried
+                    lookup_negative_logger_dict[k] += n_queried
+                else:
+                    test_result += bloom_filter_opt.test(row["url"], k)
+                    lookup_negative_logger_dict[k] += 1
 
         FP_items = test_result + ML_positive
-        FPR = FP_items / len(negative_sample)
+
+        if Q_dist:
+            FPR = FP_items / sum_n_queried
+        else:
+            FPR = FP_items / len(negative_sample) 
+
         print('False positive items: %d' % FP_items)
         print('False positive rate: %f' % FPR)
 
@@ -216,21 +241,40 @@ if __name__ == '__main__':
         c_arr.append(c_opt)
         region_negatives_arr.append(lookup_negative_logger_dict)
 
-        '''Stage 3: Run PLBF on all the positve samples'''
-        ### Test queries
-        query_positive = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), 'url']
-        score_positive = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), 'score']
-
-        ### False positives from the model:
-        ML_positive = len(positive_sample[positive_sample["score"] >=thresholds_opt[-2]])
+        '''Stage 3: Run PLBF on all the positive samples'''
+        ML_positive = 0
+        sum_n_queried = 0
 
         lookup_positive_logger_dict = defaultdict(int)
 
-        for score_s, query_s in zip(score_positive, query_positive):
-            ix = min(np.where(score_s < thresholds_opt)[0])
-            # thres = thresholds[ix]
-            k = k_max_opt - ix
-            lookup_positive_logger_dict[k] += 1
+        for _, row in positive_sample.iterrows():
+            if row["score"] >= thresholds_opt[-2]:
+                # We know it's a positive from the ML model
+                if Q_dist:
+                    n_queried = int(row["query_count"])
+                    sum_n_queried += n_queried
+                    ML_positive += n_queried
+                else:    
+                    ML_positive += 1 
+            else: 
+                # We test if its a positive from the bloom filter
+                ix = min(np.where(row["score"] < thresholds_opt)[0])
+                k = k_max_opt - ix
+                if Q_dist:
+                    n_queried = int(row["query_count"])
+                    sum_n_queried += n_queried
+                    lookup_positive_logger_dict[k] += n_queried
+                else:
+                    lookup_positive_logger_dict[k] += 1
+
+
+
+
+        # for score_s, query_s in zip(score_positive, query_positive):
+        #     ix = min(np.where(score_s < thresholds_opt)[0])
+        #     # thres = thresholds[ix]
+        #     k = k_max_opt - ix
+        #     lookup_positive_logger_dict[k] += 1
 
         lookup_positive_logger_dict[0] = ML_positive
         lookup_positive_logger_dict["FPR"] = FPR

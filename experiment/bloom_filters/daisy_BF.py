@@ -110,6 +110,9 @@ def set_qx(data, const_qx, use_Q_dist):
         print(f"qx is set to be constant: {qx}")
     else:
         print("qx is not constant")
+        query_sum = data["qx"].sum()
+        print(f"normalizing the qx by dividing with qx sum: {query_sum}")
+        data["qx"] = data["qx"].div(query_sum)
         # raise Exception(f"Not having a constant qx value is not implemented!")
 
 
@@ -304,6 +307,7 @@ if __name__ == '__main__':
         k_lookup_dict["FPR_actual"] = actual_FPR
         k_lookup_dict["size"] = filter_size
         lookup_k_arr.append(k_lookup_dict)
+        print("-----------------------------------")
         
 
     print(f"size_arr: {mem_result}")

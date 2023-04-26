@@ -67,24 +67,27 @@ def k_hash(F, px, qx, n):
 def lower_bound(positive_data, negative_data, F, n):
     total = 0
     log_k_positive_size_dict = defaultdict(int)
-    log_k_negative_size_dict = defaultdict(int)
-    for _, row in positive_data.iterrows():
-        px = row["px"]
-        qx = row["qx"] 
-        k = k_hash(F, px, qx, n)
+    # for _, row in positive_data.iterrows():
+    for row in positive_data.itertuples(index=False):
+        # px = row["px"]
+        # qx = row["qx"] 
+        k = k_hash(F, row.px, row.qx, n)
         if k < 0:
             print(f"NEGATIVE VALUE!!! {k} **************************************************************")
         log_k_positive_size_dict[k] += 1
-        total += px * k
+        total += row.px * k
     print(log_k_positive_size_dict)
-    for _, row in negative_data.iterrows():
-        px = row["px"]
-        qx = row["qx"] 
-        k = k_hash(F, px, qx, n)
+
+    log_k_negative_size_dict = defaultdict(int)
+    # for _, row in negative_data.iterrows():
+    for row in negative_data.itertuples(index=False):
+        # px = row["px"]
+        # qx = row["qx"] 
+        k = k_hash(F, row.px, row.qx, n)
         if k < 0:
             print(f"NEGATIVE VALUE!!! {k} **************************************************************")
         log_k_negative_size_dict[k] += 1
-        total += px * k
+        total += row.px * k
     print(log_k_negative_size_dict)
 
     return n * total, log_k_positive_size_dict, log_k_negative_size_dict
@@ -171,28 +174,47 @@ class Daisy_BloomFilter():
         k_lookup_dict = defaultdict(int)
         total = 0
         zero_k_total = 0
-        for _, row in data.iterrows():
-            n_queries += int(row["query_count"])
-            look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
-            if Q_dist:
-                n_queried = int(row["query_count"])
-                total += look_up_val * n_queried
-                k_lookup_dict[k_x] += n_queried
+        if Q_dist:
+            for row in data.itertuples(index=False):
+                n_queries += row.query_count
+                look_up_val, k_x = self.eval_lookup(row.url, row.px, row.qx)
+                total += look_up_val * row.query_count
+                k_lookup_dict[k_x] += row.query_count
                 if k_x == 0:
-                    zero_k_total += n_queried
-            else: 
+                    zero_k_total += row.query_count
+        else:
+            n_queries = len(data)
+            for row in data.itertuples(index=False):
+                look_up_val, k_x = self.eval_lookup(row.url, row.px, row.qx)
                 total += look_up_val
                 k_lookup_dict[k_x] += 1
                 if k_x == 0:
                     zero_k_total += 1
+
+        # for _, row in data.iterrows():
+        #     n_queries += int(row["query_count"])
+        #     look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
+        #     if Q_dist:
+        #         n_queried = int(row["query_count"])
+        #         total += look_up_val * n_queried
+        #         k_lookup_dict[k_x] += n_queried
+        #         if k_x == 0:
+        #             zero_k_total += n_queried
+        #     else: 
+        #         total += look_up_val
+        #         k_lookup_dict[k_x] += 1
+        #         if k_x == 0:
+        #             zero_k_total += 1
             
         return total / n_queries, zero_k_total / n_queries, k_lookup_dict
     
 
     def populate(self, data):
         logger = defaultdict(int)
-        for _, row in data.iterrows():
-            kx = self.insert(row["url"], row["px"], row["qx"])
+        # for _, row in data.iterrows():
+        for row in data.itertuples(index=False):
+            # kx = self.insert(row["url"], row["px"], row["qx"])
+            kx = self.insert(row.url, row.px, row.qx)
             logger[kx] += 1
         print(f"populate hash dist: {logger}")
         return logger
@@ -241,7 +263,7 @@ if __name__ == '__main__':
 
     FPR_targets = []
     tmp = 0.5
-    while tmp > 10**(-4):
+    while tmp > 10**(-1):
         FPR_targets.append(tmp)
         tmp /= 2
     # FPR_targets.append(10**(-10))

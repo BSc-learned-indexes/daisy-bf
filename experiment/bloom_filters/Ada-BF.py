@@ -68,7 +68,7 @@ else:
 data = pd.read_csv(data_path)
 negative_sample = data.loc[(data['label']==-1)]
 positive_sample = data.loc[(data['label']==1)]
-train_negative = negative_sample.sample(frac = 0.3)
+train_negative = negative_sample.sample(frac = 0.3, random_state = 42)
 
 class Ada_BloomFilter():
     def __init__(self, n, hash_len, k_max):

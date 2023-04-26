@@ -5,7 +5,7 @@ model:
 	@python3 plot_distributions.py
 
 plbf:
-	@python3 ./bloom_filters/PLBF.py --data_path ./data/scores/daisy-out.csv --model_path ./models/model.pickle --num_group_min 2 --num_group_max 8 --min_size 1000 --max_size 70000 --step 5000
+	@python3 ./bloom_filters/PLBF.py --data_path ./data/scores/syntetic_zipfean.csv --model_path ./models/model.pickle --num_group_min 2 --num_group_max 8 --min_size 1000 --max_size 70000 --step 5000 --Q_dist False
 
 standard: 
 	@python3 bloom_filters/Bloom_filter.py --data_path ./data/scores/syntetic_zipfean.csv --min_size 1000 --max_size 70000 --step 5000

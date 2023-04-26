@@ -11,7 +11,7 @@ standard:
 	@python3 bloom_filters/Bloom_filter.py --data_path ./data/scores/syntetic_zipfean.csv --min_size 1000 --max_size 70000 --step 5000
 
 daisy: 
-	@python3 bloom_filters/daisy_BF.py --data_path ./data/scores/syntetic_zipfean.csv --fpr_data_path ./data/plots/Ada-BF.csv --model_path ./models/model.pickle --tau True --max_iter 30 --normalize True
+	@python3 bloom_filters/daisy_BF.py --data_path ./data/scores/syntetic_zipfean.csv --fpr_data_path ./data/plots/Ada-BF.csv --model_path ./models/model.pickle --tau True --max_iter 30 --normalize True --use_Q_dist True
 	#@python3 bloom_filters/daisy_BF.py --data_path ./data/scores/exported_urls.csv --fpr_data_path ./data/plots/Ada-BF.csv --model_path ./models/model.pickle --tau True --max_iter 30 --normalize True
 
 bb_daisy: 

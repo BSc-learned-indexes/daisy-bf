@@ -28,13 +28,24 @@ def init_args():
 
     parser.add_argument('--normalize_scores', action="store", dest="normalize", type=bool, required=False, default=False, help="normalizes px and qx scores")
 
+    parser.add_argument('--use_Q_dist', action="store", dest="use_Q_dist", type=bool, required=False, default=False, help="uses q_dist for daisy")
+
+
+
+
 
     return parser.parse_args()
 
 def load_data():
-    data = pd.read_csv(DATA_PATH)
+    if (USE_Q_DIST):
+        splitted = DATA_PATH.split(".csv")
+        data_path = splitted[0] + "_with_qx.csv"
+        print(data_path)
+    else:
+        data_path = DATA_PATH
+    data = pd.read_csv(data_path)
     set_px(data, NORMALIZE_SCORES)
-    set_qx(data, CONST_QX)
+    set_qx(data, CONST_QX, USE_Q_DIST)
     positive_sample = data.loc[(data['label']==1)]
     negative_sample = data.loc[(data['label']==-1)]
     return data, positive_sample, negative_sample
@@ -92,13 +103,14 @@ def set_px(data, normalize):
     else: 
         data["px"] = data["score"]
 
-def set_qx(data, const_qx):
-    if const_qx:
+def set_qx(data, const_qx, use_Q_dist):
+    if const_qx and not use_Q_dist:
         qx = 1 / len(data)
         data["qx"] = qx 
         print(f"qx is set to be constant: {qx}")
     else:
-        raise Exception(f"Not having a constant qx value is not implemented!")
+        print("qx is not constant")
+        # raise Exception(f"Not having a constant qx value is not implemented!")
 
 
 def get_target_actual_FPR_from_csv(path):
@@ -151,16 +163,24 @@ class Daisy_BloomFilter():
         else:
             return 0, k_x
         
-    def get_actual_FPR(self, data):
+    def get_actual_FPR(self, data, use_Q_dist):
         k_lookup_dict = defaultdict(int)
         total = 0
         zero_k_total = 0
         for _, row in data.iterrows():
-            look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
-            total += look_up_val
-            k_lookup_dict[k_x] += 1
-            if k_x == 0:
-                zero_k_total += 1
+            if use_Q_dist:
+                for _ in range(int(row["query_count"])):
+                    look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
+                    total += look_up_val
+                    k_lookup_dict[k_x] += 1
+                    if k_x == 0:
+                        zero_k_total += 1
+            else: 
+                look_up_val, k_x = self.eval_lookup(row["url"], row["px"], row["qx"])
+                total += look_up_val
+                k_lookup_dict[k_x] += 1
+                if k_x == 0:
+                    zero_k_total += 1
             
         return total / len(data), zero_k_total / len(data), k_lookup_dict
     
@@ -187,6 +207,7 @@ if __name__ == '__main__':
     WITHIN_TEN_PCT = args.within_ten_pct
     TAU = args.tau
     NORMALIZE_SCORES = args.normalize
+    USE_Q_DIST = args.use_Q_dist
 
     data, positive_data, negative_data = load_data()
 
@@ -242,7 +263,7 @@ if __name__ == '__main__':
             bits_set = daisy.arr.sum()
             print(f"sum of 1-bits in the array: {bits_set}")
             print(f"fraction of 1-bits in the array: {bits_set / len(daisy.arr)}")
-            actual_FPR, FPR_from_zero_k, k_lookup_dict = daisy.get_actual_FPR(negative_data)
+            actual_FPR, FPR_from_zero_k, k_lookup_dict = daisy.get_actual_FPR(negative_data, USE_Q_DIST)
         else:
             actual_FPR = 1.0
             FPR_from_zero_k = len(negative_data)

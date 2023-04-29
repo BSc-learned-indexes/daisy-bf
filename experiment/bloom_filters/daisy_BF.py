@@ -44,6 +44,23 @@ def load_data():
     set_qx(data, CONST_QX, USE_Q_DIST)
     positive_sample = data.loc[(data['label']==1)]
     negative_sample = data.loc[(data['label']==-1)]
+
+    total = 0
+    total_2 = 0
+    for row in data.itertuples():
+        total += row.px * row.qx
+        total_2 += row.px * (1/len(data))
+    print(f"sum(px*qx): {total}, n: {len(positive_sample)}")
+    print(f"sum(px*1/u): {total_2}, n: {len(positive_sample)}")
+    print(f"sum(px*qx) * n = {total * len(positive_sample)} <= F")
+    print(f"sum(px*1/u) * n = {total_2 * len(positive_sample)} <= F")
+    print(f"|u|: {len(data)}")
+    print(f"n: {len(positive_sample)}")
+    print(f"|u|/n = {len(data)/len(positive_sample)} >= F")
+
+    # print(f"sum(px*1/u) * n = {total_2 * len(positive_sample)/4} <= F")
+    # print(f"sum(px*1/u) * n = {total_2 * len(positive_sample)/8} <= F")
+
     return data, positive_sample, negative_sample
 
 def k_hash(F, px, qx, n):
@@ -79,7 +96,7 @@ def lower_bound(positive_data, negative_data, F, n):
     return n * total, log_k_positive_size_dict, log_k_negative_size_dict
 
 def size(positive_data, negative_data, F_target, n):
-    lb, log_k_positive_size_dict, log_k_negative_size_dict = lower_bound(positive_data, negative_data, F_target/6, n)
+    lb, log_k_positive_size_dict, log_k_negative_size_dict = lower_bound(positive_data, negative_data, F_target, n)
     print(lb)
     size = math.log(math.e, 2) * lb
     return math.ceil(size), log_k_positive_size_dict, log_k_negative_size_dict
@@ -102,6 +119,7 @@ def set_qx(data, const_qx, Q_dist):
         query_sum = data["qx"].sum()
         print(f"normalizing the qx by dividing with qx sum: {query_sum}")
         data["qx"] = data["qx"].div(query_sum)
+        print(f"sum of qx is: {data['qx'].sum()}")
 
 def get_target_actual_FPR_from_csv(path):
     data = pd.read_csv(path)
@@ -229,7 +247,7 @@ if __name__ == '__main__':
 
     FPR_targets = []
     tmp = 0.5
-    while tmp > 10**(-4):
+    while tmp > 10**(-6):
         FPR_targets.append(tmp)
         tmp /= 2
     # FPR_targets.append(10**(-10))
@@ -239,6 +257,7 @@ if __name__ == '__main__':
     # FPR_targets = [0.4]
 
     for f_i in FPR_targets:
+        f_i = f_i / 6
         best_size = None
         closest_FPR = None
         zero_hash_pct = None

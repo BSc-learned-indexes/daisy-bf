@@ -292,18 +292,18 @@ if __name__ == '__main__':
         ### Test queries
         lookup_positive_logger_dict = defaultdict(int)
 
-        if Q_dist:
-            ML_positive = positive_sample.loc[(positive_sample['score'] >= thresholds_opt[-2]), 'query_count'].sum()
-            positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url", "query_count"]]
-            for row in positive_data.itertuples(index=False):
-                ix = min(np.where(row.score < thresholds_opt)[0]) - 1
-                lookup_positive_logger_dict[ix+1] += row.query_count
-        else:
-            ML_positive = len(positive_sample[positive_sample["score"] >=thresholds_opt[-2]])
-            positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url"]]
-            for row in positive_data.itertuples(index=False):
-                ix = min(np.where(row.score < thresholds_opt)[0]) - 1
-                lookup_positive_logger_dict[ix + 1] += 1
+        # if Q_dist:
+        #     ML_positive = positive_sample.loc[(positive_sample['score'] >= thresholds_opt[-2]), 'query_count'].sum()
+        #     positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url", "query_count"]]
+        #     for row in positive_data.itertuples(index=False):
+        #         ix = min(np.where(row.score < thresholds_opt)[0]) - 1
+        #         lookup_positive_logger_dict[ix+1] += row.query_count
+        # else:
+        ML_positive = len(positive_sample[positive_sample["score"] >=thresholds_opt[-2]])
+        positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url"]]
+        for row in positive_data.itertuples(index=False):
+            ix = min(np.where(row.score < thresholds_opt)[0]) - 1
+            lookup_positive_logger_dict[ix + 1] += 1
 
         lookup_positive_logger_dict[0] = ML_positive
         lookup_positive_logger_dict["FPR_actual"] = FPR

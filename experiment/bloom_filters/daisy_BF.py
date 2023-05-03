@@ -133,7 +133,7 @@ class Daisy_BloomFilter():
     
 
     def insert(self, key, px, qx):
-        k_x = math.ceil(k_hash(self.F, px, qx, self.n))
+        k_x = k_hash(self.F, px, qx, self.n)
         if k_x == 0:
             return k_x
         for i in range(k_x):
@@ -148,7 +148,7 @@ class Daisy_BloomFilter():
         True if there is a the element is in the set (can make a false positive).
     """
     def lookup(self, key, px, qx):
-        k_x = math.ceil(k_hash(self.F, px, qx, self.n))
+        k_x = k_hash(self.F, px, qx, self.n)
         for i in range(k_x):
             arr_index = self.hash_functions[i](key)
             if self.arr[arr_index] == 0:

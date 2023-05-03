@@ -2,10 +2,15 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--file_name', action="store", dest="data_path", type=str, required=True, help="name of the dataset")
+
+parser.add_argument('--is_daisy', action="store", dest="is_daisy", type=bool, required=False, help="True if the file is from the daisy bloom filter", default=False)
 
 
-
-def heatmap(data, row_labels, col_labels, ax=None,
+def heatmap(data, row_labels, col_labels, x_ax_label="", y_ax_label="", ax=None,
             cbar_kw=None, cbarlabel="", **kwargs):
     """
     Create a heatmap from a numpy array and two lists of labels.
@@ -37,9 +42,9 @@ def heatmap(data, row_labels, col_labels, ax=None,
 
     # Plot the heatmap
     im = ax.imshow(data, **kwargs)
-    ax.set_xlabel("Hash Functions")
+    ax.set_xlabel(x_ax_label)
     ax.xaxis.set_label_position("top")
-    ax.set_ylabel("False Positive Rate")
+    ax.set_ylabel(y_ax_label)
 
     # Create colorbar
     cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw, shrink=0.5)
@@ -126,50 +131,30 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
     return texts
 
-file = "daisy-BF_k_insert"
-# file = "daisy-BF_k_lookup"
-data = pd.read_csv(f'./data/plots/{file}.csv')
-# data = data.reindex(sorted(data.columns), axis=1)
-print(data.head())
-data = pd.read_csv(f'./data/plots/{file}.csv', index_col=0)
-# data = data.reindex(sorted(data.columns), axis=1)
-print(data.head())
-
-rows = data["FPR_actual"]
-print(rows)
-rows = data["FPR_actual"].apply(lambda x: "{:.1E}".format(x))
-# rows = data["FPR_actual"].apply(lambda x: "{:.1f}*10^{}".format(*("{:.1e}".format(x).split('e'))))
-print(rows)
-# print(rows)
-
-print(f"rows: {len(rows)}")
-
-kx_data = data.drop(["size", "FPR_target", "FPR_actual"], axis=1)
-cols = kx_data.columns.astype(int)
+args = parser.parse_args()
+FILE = args.data_path
+IS_DAISY = args.is_daisy
+data = pd.read_csv(f'./data/plots/{FILE}.csv', index_col=0)
+rows = data["FPR_actual"].apply(lambda x: "{:.2E}".format(x))
+if IS_DAISY:
+    matrix = data.drop(["size", "FPR_target", "FPR_actual"], axis=1)
+else:
+    matrix = data.drop(["size", "FPR_actual"], axis=1)
+cols = matrix.columns.astype(int)
 sorter = np.argsort(cols)
 cols = cols[sorter]
-print(cols)
-kx_data = kx_data[cols.astype(str)]
-# data.columns = cols.astype(str)
-print(kx_data.head())
-# kx_data.fillna(0, inplace=True)
-num_elements = kx_data.iloc[0].sum()
-# print(kx_data.head())
-# kx_data.to_numpy()
-# kx_data = np.nan_to_num(kx_data)
-kx_data = kx_data * 100 / num_elements
-# print(kx_data.head())
-kx_data = kx_data.round(2)
-print(kx_data.head())
-# print(kx_data)
-# cols = list(range(kx_data.shape[1]))
-print(f"cols: {len(cols)}")
+matrix = matrix[cols.astype(str)]
+num_elements = matrix.iloc[0].sum()
+matrix = matrix * 100 / num_elements
+matrix = matrix.round(2)
 fig, ax = plt.subplots(figsize=(15,15))
+if IS_DAISY:
+    im, cbar = heatmap(matrix, rows, cols, "Number of Hash Functions", "False Positive Rate", ax=ax, cmap="Wistia", cbarlabel="% of elements")
+else:
+    im, cbar = heatmap(matrix, rows, cols, "Region", "False Positive Rate", ax=ax, cmap="Wistia", cbarlabel="% of elements")
 
-im, cbar = heatmap(kx_data, rows, cols, ax=ax,
-                   cmap="Wistia", cbarlabel="% of elements")
 
 texts = annotate_heatmap(im, valfmt="{x:.1f}")
 
 fig.tight_layout()
-plt.savefig(f'./distributions/img/heatmaps/{file}.png')
+plt.savefig(f'./distributions/img/heatmaps/{FILE}.png')

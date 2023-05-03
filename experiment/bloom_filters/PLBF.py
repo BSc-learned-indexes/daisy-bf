@@ -279,7 +279,7 @@ if __name__ == '__main__':
         print(f"test results: {test_result}")
         print(f"Test results from ML-model: {ML_positive}")
         lookup_negative_logger_dict[0] = ML_positive
-        lookup_negative_logger_dict["FPR"] = FPR
+        lookup_negative_logger_dict["FPR_actual"] = FPR
         lookup_negative_logger_dict["size"] = i
         print(f"negative lookup dict: {lookup_negative_logger_dict}")
 
@@ -306,13 +306,13 @@ if __name__ == '__main__':
                 lookup_positive_logger_dict[ix + 1] += 1
 
         lookup_positive_logger_dict[0] = ML_positive
-        lookup_positive_logger_dict["FPR"] = FPR
+        lookup_positive_logger_dict["FPR_actual"] = FPR
         lookup_positive_logger_dict["size"] = i
 
         print(f"positive lookup dict: {lookup_positive_logger_dict}")
         region_positives_arr.append(lookup_positive_logger_dict)
 
-        tmp_data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+        tmp_data = {"size": mem_arr, "false_positive_rating": FPR_arr}
         tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
         tmp_df_data.to_csv(f"{results.out_path}tmp_PLBF.csv")
 
@@ -320,7 +320,7 @@ if __name__ == '__main__':
         bar.next()
 
 
-    data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+    data = {"size": mem_arr, "false_positive_rating": FPR_arr}
     df_data = pd.DataFrame.from_dict(data=data)
 
     df_data.to_csv(f"{results.out_path}PLBF_mem_FPR.csv")

@@ -1,5 +1,7 @@
+vectorize:
+	@python3 url_vectorizor.py
+
 model:
-	# @python3 url_vectorizor.py
 	@python3 create_model.py
 	# @python3 create_model.py --rfc_max_dept 2 --rfc_n_estimators 10
 	@python3 plot_distributions.py

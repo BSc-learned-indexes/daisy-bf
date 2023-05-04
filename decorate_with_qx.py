@@ -5,7 +5,7 @@ import math
 # Arguments 
 parser = argparse.ArgumentParser()
 parser.add_argument("--file_name", action="store", dest="file_name", type=str, required=True, help="File to decorate")
-parser.add_argument("--qx_mult", action="store", dest="qx_mult", type=str, required=False, default=10, help="How many times the highest qx is queried")
+parser.add_argument("--qx_mult", action="store", dest="qx_mult", type=str, required=False, default=100000, help="How many times the highest qx is queried")
 
 
 args = parser.parse_args()

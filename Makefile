@@ -1,10 +1,14 @@
 vectorize:
 	@python3 url_vectorizor.py
 
+zipf:
+	@python3 create_synthetic_dataset.py
+	@python3 plot_distributions.py --data_set_name syntetic_zipfean
+
 model:
-	@python3 create_model.py
-	# @python3 create_model.py --rfc_max_dept 2 --rfc_n_estimators 10
-	@python3 plot_distributions.py
+	@python3 create_model.py --model_type regression
+	# @python3 create_model.py --rfc_n_estimators 10
+	@python3 plot_distributions.py --data_set_name exported_urls
 
 plbf:
 	@python3 ./bloom_filters/PLBF.py --data_path ./data/scores/exported_urls.csv --model_path ./models/model.pickle --num_group_min 2 --num_group_max 8 --min_size 1000 --max_size 26000 --step 5000 --Q_dist True

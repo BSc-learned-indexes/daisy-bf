@@ -3,15 +3,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.special import zeta
 
-a = 1.0001
-n = 2_000_000
+a = 1.00001
+n = 3_000_000
 non_keys = np.random.zipf(a, n)
 
 non_keys = non_keys / non_keys.max()
 
-f = 0.005
-num_keys = int(n*f)
-print(num_keys)
+num_keys = 3000
+
 keys = np.random.zipf(a, num_keys)
 
 keys = keys / keys.max()

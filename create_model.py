@@ -84,7 +84,7 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=args.train_
 if (args.model_type == "random_forest"):
 
     # Classify with random forest 
-    model = RandomForestClassifier(n_estimators=args.rfc_n_estimators, max_depth=args.rfc_max_dept, random_state=42)
+    model = RandomForestClassifier(n_estimators=args.rfc_n_estimators, max_leaf_nodes=20, random_state=42)
     model.fit(x_train, y_train)
     model_predictions = model.predict(x_test)
     

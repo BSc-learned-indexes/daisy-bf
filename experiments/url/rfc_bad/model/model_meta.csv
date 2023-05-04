@@ -1,0 +1,2 @@
+f1,accuracy,confusion_matrix_0_0,confusion_matrix_0_1,confusion_matrix_1_0,confusion_matrix_1_1,size_bits
+0.995342190956431,0.9953629611391522,73094,137,541,72442,261112

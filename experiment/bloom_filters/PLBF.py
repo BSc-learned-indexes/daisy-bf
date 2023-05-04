@@ -279,7 +279,7 @@ if __name__ == '__main__':
         print(f"test results: {test_result}")
         print(f"Test results from ML-model: {ML_positive}")
         lookup_negative_logger_dict[0] = ML_positive
-        lookup_negative_logger_dict["FPR"] = FPR
+        lookup_negative_logger_dict["FPR_actual"] = FPR
         lookup_negative_logger_dict["size"] = i
         print(f"negative lookup dict: {lookup_negative_logger_dict}")
 
@@ -292,27 +292,27 @@ if __name__ == '__main__':
         ### Test queries
         lookup_positive_logger_dict = defaultdict(int)
 
-        if Q_dist:
-            ML_positive = positive_sample.loc[(positive_sample['score'] >= thresholds_opt[-2]), 'query_count'].sum()
-            positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url", "query_count"]]
-            for row in positive_data.itertuples(index=False):
-                ix = min(np.where(row.score < thresholds_opt)[0]) - 1
-                lookup_positive_logger_dict[ix+1] += row.query_count
-        else:
-            ML_positive = len(positive_sample[positive_sample["score"] >=thresholds_opt[-2]])
-            positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url"]]
-            for row in positive_data.itertuples(index=False):
-                ix = min(np.where(row.score < thresholds_opt)[0]) - 1
-                lookup_positive_logger_dict[ix + 1] += 1
+        # if Q_dist:
+        #     ML_positive = positive_sample.loc[(positive_sample['score'] >= thresholds_opt[-2]), 'query_count'].sum()
+        #     positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url", "query_count"]]
+        #     for row in positive_data.itertuples(index=False):
+        #         ix = min(np.where(row.score < thresholds_opt)[0]) - 1
+        #         lookup_positive_logger_dict[ix+1] += row.query_count
+        # else:
+        ML_positive = len(positive_sample[positive_sample["score"] >=thresholds_opt[-2]])
+        positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url"]]
+        for row in positive_data.itertuples(index=False):
+            ix = min(np.where(row.score < thresholds_opt)[0]) - 1
+            lookup_positive_logger_dict[ix + 1] += 1
 
         lookup_positive_logger_dict[0] = ML_positive
-        lookup_positive_logger_dict["FPR"] = FPR
+        lookup_positive_logger_dict["FPR_actual"] = FPR
         lookup_positive_logger_dict["size"] = i
 
         print(f"positive lookup dict: {lookup_positive_logger_dict}")
         region_positives_arr.append(lookup_positive_logger_dict)
 
-        tmp_data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+        tmp_data = {"size": mem_arr, "false_positive_rating": FPR_arr}
         tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
         tmp_df_data.to_csv(f"{results.out_path}tmp_PLBF.csv")
 
@@ -320,7 +320,7 @@ if __name__ == '__main__':
         bar.next()
 
 
-    data = {"memory": mem_arr, "false_positive_rating": FPR_arr}
+    data = {"size": mem_arr, "false_positive_rating": FPR_arr}
     df_data = pd.DataFrame.from_dict(data=data)
 
     df_data.to_csv(f"{results.out_path}PLBF_mem_FPR.csv")

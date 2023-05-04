@@ -56,10 +56,7 @@ def load_data():
     print(f"sum(px*1/u) * n = {total_2 * len(positive_sample)} <= F")
     print(f"|u|: {len(data)}")
     print(f"n: {len(positive_sample)}")
-    print(f"|u|/n = {len(data)/len(positive_sample)} >= F")
-
-    # print(f"sum(px*1/u) * n = {total_2 * len(positive_sample)/4} <= F")
-    # print(f"sum(px*1/u) * n = {total_2 * len(positive_sample)/8} <= F")
+    print(f"|u|/n = {len(data)/len(positive_sample)} >= F") 
 
     return data, positive_sample, negative_sample
 
@@ -79,27 +76,21 @@ def k_hash(F, px, qx, n):
 
 def lower_bound(positive_data, negative_data, F, n):
     total = 0
-    log_k_positive_size_dict = defaultdict(int)
     for row in positive_data.itertuples(index=False):
         k = k_hash(F, row.px, row.qx, n)
-        log_k_positive_size_dict[k] += 1
         total += row.px * k
-    print(log_k_positive_size_dict)
 
-    log_k_negative_size_dict = defaultdict(int)
     for row in negative_data.itertuples(index=False):
         k = k_hash(F, row.px, row.qx, n)
-        log_k_negative_size_dict[k] += 1
         total += row.px * k
-    print(log_k_negative_size_dict)
 
-    return n * total, log_k_positive_size_dict, log_k_negative_size_dict
+    return n * total
 
 def size(positive_data, negative_data, F_target, n):
-    lb, log_k_positive_size_dict, log_k_negative_size_dict = lower_bound(positive_data, negative_data, F_target, n)
+    lb = lower_bound(positive_data, negative_data, F_target, n)
     print(lb)
     size = math.log(math.e, 2) * lb
-    return math.ceil(size), log_k_positive_size_dict, log_k_negative_size_dict
+    return math.ceil(size)
 
 def set_px(data, normalize):
     if normalize:
@@ -175,24 +166,19 @@ class Daisy_BloomFilter():
         n_queries = 0
         k_lookup_dict = defaultdict(int)
         total = 0
-        zero_k_total = 0
         if Q_dist:
             for row in data.itertuples(index=False):
                 n_queries += row.query_count
                 look_up_val, k_x = self.eval_lookup(row.url, row.px, row.qx)
                 total += look_up_val * row.query_count
                 k_lookup_dict[k_x] += row.query_count
-                if k_x == 0:
-                    zero_k_total += row.query_count
         else:
             n_queries = len(data)
             for row in data.itertuples(index=False):
                 look_up_val, k_x = self.eval_lookup(row.url, row.px, row.qx)
                 total += look_up_val
                 k_lookup_dict[k_x] += 1
-                if k_x == 0:
-                    zero_k_total += 1
-        return total / n_queries, zero_k_total / n_queries, k_lookup_dict
+        return total / n_queries, k_lookup_dict[0] / n_queries, k_lookup_dict
     
 
     def populate(self, data):
@@ -235,26 +221,16 @@ if __name__ == '__main__':
     bits_set_arr = []
     pct_bits_set_arr = []
 
-    log_k_positive_size_arr = []
-    log_k_negative_size_arr = []
     insert_k_arr = []
     lookup_k_arr = []
     
-    # FPR_targets = [0.2, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01]
-    # FPR_targets = [0.04, 0.03, 0.02, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
-    # FPR_targets = [0.5, 0.4, 0.3, 0 .2, 0.1]
-    # FPR_targets = [0.5, 0.4]
-
     FPR_targets = []
     tmp = 0.5
     while tmp > 10**(-6):
         FPR_targets.append(tmp)
         tmp /= 2
-    # FPR_targets.append(10**(-10))
-    # FPR_targets.append(10**(-20))
     FPR_targets.append(10**(-30))
     print(FPR_targets)
-    # FPR_targets = [0.4]
 
     for f_i in FPR_targets:
         f_i = f_i / 6
@@ -265,7 +241,7 @@ if __name__ == '__main__':
         
         print(f"Target FPR: {f_i}")
         n = len(positive_data)
-        filter_size, log_k_positive_size_dict, log_k_negative_size_dict = size(positive_data, negative_data, f_i, n)
+        filter_size = size(positive_data, negative_data, f_i, n)
         print(f"size: {filter_size}")
 
         if filter_size > 2:
@@ -296,16 +272,6 @@ if __name__ == '__main__':
         bits_set_arr.append(num_bits_set)
         pct_bits_set_arr.append(num_bits_set/filter_size)
 
-        log_k_positive_size_dict["FPR_target"] = f_i
-        log_k_positive_size_dict["FPR_actual"] = actual_FPR
-        log_k_positive_size_dict["size"] = filter_size
-        log_k_positive_size_arr.append(log_k_positive_size_dict)
-
-        log_k_negative_size_dict["FPR_target"] = f_i
-        log_k_negative_size_dict["FPR_actual"] = actual_FPR
-        log_k_negative_size_dict["size"] = filter_size
-        log_k_negative_size_arr.append(log_k_negative_size_dict)
-
         k_insert_dict["FPR_target"] = f_i
         k_insert_dict["FPR_actual"] = actual_FPR
         k_insert_dict["size"] = filter_size
@@ -325,12 +291,6 @@ if __name__ == '__main__':
     output = {"memory": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr}
     df_out = pd.DataFrame.from_dict(data=output)
     df_out.to_csv(f"{args.out_path}/daisy-BF.csv")
-
-    df_size_positive = pd.DataFrame.from_dict(data=log_k_positive_size_arr)
-    df_size_positive.to_csv(f"{args.out_path}/daisy-BF_k_size_positive.csv")
-
-    df_size_negative = pd.DataFrame.from_dict(data=log_k_negative_size_arr)
-    df_size_negative.to_csv(f"{args.out_path}/daisy-BF_k_size_negative.csv")
 
     df_insert = pd.DataFrame.from_dict(data=insert_k_arr)
     df_insert.to_csv(f"{args.out_path}/daisy-BF_k_insert.csv")

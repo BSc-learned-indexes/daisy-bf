@@ -254,8 +254,9 @@ if __name__ == '__main__':
             for row in negative_data.itertuples(index=False):
                 sum_n_queried += row.query_count
                 ix = min(np.where(row.score < thresholds_opt)[0]) - 1
+                # print(thresholds_opt)
                 test_result += Bloom_Filters_opt[ix].test(row.url) * row.query_count
-                lookup_negative_logger_dict[ix+1] += row.query_count
+                lookup_negative_logger_dict[ix] += row.query_count
         else:
             ML_positive = len(negative_sample[negative_sample["score"] >=thresholds_opt[-2]])
             negative_data = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), ['score', "url"]]
@@ -263,7 +264,7 @@ if __name__ == '__main__':
                 # We test if its a positive from the bloom filter
                 ix = min(np.where(row.score < thresholds_opt)[0]) - 1
                 test_result += Bloom_Filters_opt[ix].test(row.url)
-                lookup_negative_logger_dict[ix+1] += 1
+                lookup_negative_logger_dict[ix] += 1
 
 
 
@@ -278,7 +279,13 @@ if __name__ == '__main__':
 
         print(f"test results: {test_result}")
         print(f"Test results from ML-model: {ML_positive}")
-        lookup_negative_logger_dict[0] = ML_positive
+        if len(thresholds_opt)-2 in lookup_negative_logger_dict:
+            print(f"trying to overwrite lookup_negative_logger_dict[{len(thresholds_opt)-2}] with ML_positive - exitting")
+            exit(1)
+        lookup_negative_logger_dict[len(thresholds_opt)-2] = ML_positive
+        print(lookup_negative_logger_dict)
+        print(f"thresholds_opt: {thresholds_opt}")
+        print(f"thresholds_opt len: {len(thresholds_opt)}")
         lookup_negative_logger_dict["FPR_actual"] = FPR
         lookup_negative_logger_dict["size"] = i
         print(f"negative lookup dict: {lookup_negative_logger_dict}")
@@ -297,15 +304,18 @@ if __name__ == '__main__':
         #     positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url", "query_count"]]
         #     for row in positive_data.itertuples(index=False):
         #         ix = min(np.where(row.score < thresholds_opt)[0]) - 1
-        #         lookup_positive_logger_dict[ix+1] += row.query_count
+        #         lookup_positive_logger_dict[ix] += row.query_count
         # else:
         ML_positive = len(positive_sample[positive_sample["score"] >=thresholds_opt[-2]])
         positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url"]]
         for row in positive_data.itertuples(index=False):
             ix = min(np.where(row.score < thresholds_opt)[0]) - 1
-            lookup_positive_logger_dict[ix + 1] += 1
+            lookup_positive_logger_dict[ix] += 1
 
-        lookup_positive_logger_dict[0] = ML_positive
+        if len(thresholds_opt)-2 in lookup_positive_logger_dict:
+            print(f"trying to overwrite lookup_positive_logger_dict[{len(thresholds_opt)-2}] with ML_positive - exitting")
+            exit(1)
+        lookup_positive_logger_dict[len(thresholds_opt)-2] = ML_positive
         lookup_positive_logger_dict["FPR_actual"] = FPR
         lookup_positive_logger_dict["size"] = i
 

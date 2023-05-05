@@ -14,7 +14,7 @@ qx:
 	@python3 decorate_with_qx.py --file_name exported_urls
 
 plbf:
-	@python3 ./bloom_filters/PLBF.py --data_path ./experiments/url/rfc_good/qx_inv_px/exported_urls_qx_inv_px_full_keyset.csv --model_path ./models/model.pickle --num_group_min 2 --num_group_max 8 --min_size 12500 --max_size 26000 --step 1000 --Q_dist True
+	@python3 ./bloom_filters/PLBF.py --data_path ./experiments/url/rfc_good/qx_inv_px/full_keyset/exported_urls_qx_inv_px_full_keyset.csv --model_path ./models/model.pickle --num_group_min 2 --num_group_max 8 --min_size 12500 --max_size 26000 --step 1000 --Q_dist True
 
 standard: 
 	@python3 bloom_filters/Bloom_filter.py --data_path ./experiments/url/rfc_good/qx_inv_px/full_keyset/exported_urls_qx_inv_px_full_keyset.csv --min_size 12500 --max_size 26000 --step 1000 --Q_dist True
@@ -33,10 +33,10 @@ learned:
 	@python3 bloom_filters/learned_Bloom_filter.py --data_path ./data/scores/exported_urls.csv --model_path ./models/model.pickle --min_size 150000 --max_size 500000 --step 50000
 
 plot_all:
-	@python3 plot_size_FPR.py --file_names Ada-BF.csv daisy-BF.csv Standard_BF.csv PLBF_mem_FPR.csv
+	@python3 plot_size_FPR.py --file_names PLBF_mem_FPR.csv daisy-BF.csv Ada-BF.csv Standard_BF.csv
 
 plot_learned_bf:
-	@python3 plot_size_FPR.py --file_names PLBF_mem_FPR.csv daisy-BF.csv Ada-BF.csv Standard_BF.csv
+	@python3 plot_size_FPR.py --file_names PLBF_mem_FPR.csv daisy-BF.csv Ada-BF.csv
 	#@python3 plot_size_FPR.py --file_names PLBF_mem_FPR.csv daisy-BF.csv Ada-BF.csv
 
 heatmaps:

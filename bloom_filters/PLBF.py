@@ -41,7 +41,7 @@ Q_dist = results.Q_dist
 print(f"QDIST VALUE: {Q_dist}")
 num_group_min = results.min_group
 num_group_max = results.max_group
-model_size = os.path.getsize(results.model_path)
+model_size = 0 #os.path.getsize(results.model_path)
 if results.model_type == "SVM":
     clf = pickle.load(open(results.model_path, 'rb'))
     shape = clf['model'].support_vectors_.shape

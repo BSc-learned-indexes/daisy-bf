@@ -81,6 +81,8 @@ if __name__ == '__main__':
                         help="amount of memory to step for each")
     parser.add_argument('--out_path', action="store", dest="out_path", type=str,
                         required=False, help="path of the output", default="./data/plots/")
+    parser.add_argument('--Q_dist', action="store", dest="Q_dist", type=bool, required=False, default=False, help="uses query distribution")
+
     args = parser.parse_args()
 
 
@@ -94,13 +96,18 @@ if __name__ == '__main__':
     MIN_SIZE    = args.min_size
     STEP        = args.step
     OUT_PATH    = args.out_path
+    Q_dist = args.Q_dist
 
+    if Q_dist:
+        splitted = DATA_PATH.split(".csv")
+        DATA_PATH = splitted[0] + "_with_qx.csv"
 
     #Progress bar 
     bar = Bar('Creating standard BF     ', max=math.floor((MAX_SIZE - MIN_SIZE)/STEP))
 
     data = pd.read_csv(DATA_PATH)
     negative_sample = data.loc[(data['label'] == -1)]
+    print(negative_sample.head())
     positive_sample = data.loc[(data['label'] == 1)]
     url = positive_sample['url']
     n = len(url)
@@ -113,8 +120,22 @@ if __name__ == '__main__':
         bloom_filter = BloomFilter(n, i)
         bloom_filter.insert(url)
         url_negative = negative_sample['url']
-        n1 = bloom_filter.test(url_negative, single_key=False)
-        FPR = sum(n1) / len(negative_sample)
+
+        # ### Test queries
+        
+        if Q_dist:
+            sum_n_queried = 0
+            test_result = 0
+            negative_data = negative_sample[["url", "query_count"]]
+            for row in negative_data.itertuples(index=False):
+                sum_n_queried += row.query_count
+                test_result += bloom_filter.test(row.url) * row.query_count
+            FPR = test_result / sum_n_queried
+        else:
+            n1 = bloom_filter.test(url_negative, single_key=False)
+            FPR = sum(n1) / len(negative_sample)
+
+
         MEM_ARR.append(i)
         FPR_ARR.append(FPR)
         print('False positive rate: ', FPR)
@@ -123,7 +144,7 @@ if __name__ == '__main__':
     
     # Write results to csv
 
-    data = {"memory": MEM_ARR, "false_positive_rating": FPR_ARR}
+    data = {"size": MEM_ARR, "false_positive_rating": FPR_ARR}
     df_data = pd.DataFrame.from_dict(data=data)
 
     df_data.to_csv(f"{OUT_PATH}Standard_BF.csv")

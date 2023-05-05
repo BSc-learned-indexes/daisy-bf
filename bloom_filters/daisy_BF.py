@@ -5,6 +5,7 @@ from Bloom_filter import hashfunc
 import math 
 import os
 from collections import defaultdict
+print(os.getcwd())
 
 def init_args():
     parser = argparse.ArgumentParser()
@@ -51,11 +52,13 @@ def load_data():
         total += row.px * row.qx
         total_2 += row.px * (1/len(data))
     print(f"sum(px*qx): {total}, n: {len(positive_sample)}")
-    print(f"sum(px*1/u): {total_2}, n: {len(positive_sample)}")
-    print(f"sum(px*qx) * n = {total * len(positive_sample)} <= F")
-    print(f"sum(px*1/u) * n = {total_2 * len(positive_sample)} <= F")
-    print(f"|u|: {len(data)}")
-    print(f"n: {len(positive_sample)}")
+    print(f"sum(px*qx) <= F/n, when F=0.0001: {total} <= {0.0001/len(positive_sample)}")
+    # print(f"sum(px*qx): {total}, n: {len(positive_sample)}")
+    # print(f"sum(px*1/u): {total_2}, n: {len(positive_sample)}")
+    # print(f"sum(px*qx) * n = {total * len(positive_sample)} <= F")
+    # print(f"sum(px*1/u) * n = {total_2 * len(positive_sample)} <= F")
+    # print(f"|u|: {len(data)}")
+    # print(f"n: {len(positive_sample)}")
     print(f"|u|/n = {len(data)/len(positive_sample)} >= F") 
 
     return data, positive_sample, negative_sample
@@ -197,7 +200,7 @@ if __name__ == '__main__':
     FPR_PATH = args.fpr_data_path
     OUT_PATH = args.out_path
     CONST_QX = args.const_qx
-    MODEL_SIZE = os.path.getsize(args.model_path) * 8
+    # MODEL_SIZE = os.path.getsize(args.model_path) * 8
     PRECISION = args.precision
     MAX_ITERATIONS = args.max_iter
     WITHIN_TEN_PCT = args.within_ten_pct
@@ -214,7 +217,7 @@ if __name__ == '__main__':
     # all_data.to_csv("./data/scores/daisy-out.csv")
 
     mem_result = []
-    FPR_targets = get_target_actual_FPR_from_csv(FPR_PATH)
+    # FPR_targets = get_target_actual_FPR_from_csv(FPR_PATH)
     FPR_result = []
     threshold_values = []
     pct_from_zero_hash_func = []
@@ -226,10 +229,10 @@ if __name__ == '__main__':
     
     FPR_targets = []
     tmp = 0.5
-    while tmp > 10**(-6):
+    while tmp > 10**(-8):
         FPR_targets.append(tmp)
         tmp /= 2
-    FPR_targets.append(10**(-30))
+    # FPR_targets.append(10**(-30))
     print(FPR_targets)
 
     for f_i in FPR_targets:
@@ -288,7 +291,7 @@ if __name__ == '__main__':
     print(f"FPR_targets: {FPR_targets}")
     print(f"FPR_result: {FPR_result}")
 
-    output = {"memory": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr}
+    output = {"size": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr}
     df_out = pd.DataFrame.from_dict(data=output)
     df_out.to_csv(f"{args.out_path}/daisy-BF.csv")
 

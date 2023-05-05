@@ -28,7 +28,7 @@ for name in names:
     # Define plots 
     # Plot distribution of Keys
     bar.next()
-    x = data["memory"]
+    x = data["size"]
     x = x.div(1000)
     y = data["false_positive_rating"]
 

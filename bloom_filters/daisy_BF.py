@@ -232,7 +232,7 @@ if __name__ == '__main__':
     
     FPR_targets = []
     tmp = 0.5
-    while tmp > 10**(-8):
+    while tmp > 10**(-12):
         FPR_targets.append(tmp)
         tmp /= 2
     # FPR_targets.append(10**(-30))

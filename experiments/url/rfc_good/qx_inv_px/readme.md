@@ -20,6 +20,16 @@ After these have been run with a good RFC model, we pick the most appropriate to
 
 
 
+----
+Takeaway:
+
+1. We can write about how the key distrubtion affects things from this experiment 
+
+2. We choose to 
+---
+
+
+
 
 
 

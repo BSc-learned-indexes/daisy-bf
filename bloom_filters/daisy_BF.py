@@ -11,7 +11,7 @@ def init_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', action="store", dest="data_path", type=str, required=True,
                         help="path of the dataset")
-    parser.add_argument('--fpr_data_path', action="store", dest="fpr_data_path", type=str, required=True,
+    parser.add_argument('--fpr_data_path', action="store", dest="fpr_data_path", type=str, required=False,
                         help="path of the false positive ratings")
     parser.add_argument('--out_path', action="store", dest="out_path", type=str,
                         required=False, help="path of the output", default="./data/plots/")

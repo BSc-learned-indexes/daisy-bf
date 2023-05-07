@@ -44,8 +44,8 @@ heatmaps:
 	@python3 create_kx_heatmaps.py --file_name PLBF_regions_negatives
 	@python3 create_kx_heatmaps.py --file_name ADA-BF_regions_positives
 	@python3 create_kx_heatmaps.py --file_name ADA-BF_regions_negatives
-	# @python3 create_kx_heatmaps.py --file_name daisy-BF_k_insert --is_daisy True
-	# @python3 create_kx_heatmaps.py --file_name daisy-BF_k_lookup --is_daisy True
+	@python3 create_kx_heatmaps.py --file_name daisy-BF_k_insert --is_daisy True
+	@python3 create_kx_heatmaps.py --file_name daisy-BF_k_lookup --is_daisy True
 
 build_all_big:
 	@python3 bloom_filters/Bloom_filter.py --data_path ./data/scores/exported_urls.csv --max_size 700000

@@ -11,7 +11,7 @@ def init_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', action="store", dest="data_path", type=str, required=True,
                         help="path of the dataset")
-    parser.add_argument('--fpr_data_path', action="store", dest="fpr_data_path", type=str, required=True,
+    parser.add_argument('--fpr_data_path', action="store", dest="fpr_data_path", type=str, required=False,
                         help="path of the false positive ratings")
     parser.add_argument('--out_path', action="store", dest="out_path", type=str,
                         required=False, help="path of the output", default="./data/plots/")
@@ -168,6 +168,7 @@ class Daisy_BloomFilter():
     def get_actual_FPR(self, data, Q_dist):
         n_queries = 0
         k_lookup_dict = defaultdict(int)
+        from_model = 0
         total = 0
         if Q_dist:
             for row in data.itertuples(index=False):
@@ -181,7 +182,7 @@ class Daisy_BloomFilter():
                 look_up_val, k_x = self.eval_lookup(row.url, row.px, row.qx)
                 total += look_up_val
                 k_lookup_dict[k_x] += 1
-        return total / n_queries, k_lookup_dict[0] / n_queries, k_lookup_dict
+        return total / n_queries, k_lookup_dict[0] / n_queries, k_lookup_dict, total-k_lookup_dict[0]
     
 
     def populate(self, data):
@@ -226,6 +227,8 @@ if __name__ == '__main__':
 
     insert_k_arr = []
     lookup_k_arr = []
+    model_FP = []
+    bloom_FP = []
     
     FPR_targets = []
     tmp = 0.5
@@ -247,19 +250,13 @@ if __name__ == '__main__':
         filter_size = size(positive_data, negative_data, f_i, n)
         print(f"size: {filter_size}")
 
-        if filter_size > 2:
-            daisy = Daisy_BloomFilter(n, filter_size, f_i)
-            k_insert_dict = daisy.populate(positive_data)
-            bits_set = daisy.arr.sum()
-            print(f"sum of 1-bits in the array: {bits_set}")
-            print(f"fraction of 1-bits in the array: {bits_set / len(daisy.arr)}")
-            actual_FPR, FPR_from_zero_k, k_lookup_dict = daisy.get_actual_FPR(negative_data, USE_Q_DIST)
-        else:
-            actual_FPR = 1.0
-            FPR_from_zero_k = len(negative_data)
-            bits_set = 0
-            k_lookup_dict = None
-            k_insert_dict = None
+        daisy = Daisy_BloomFilter(n, filter_size, f_i)
+        k_insert_dict = daisy.populate(positive_data)
+        bits_set = daisy.arr.sum()
+        print(f"sum of 1-bits in the array: {bits_set}")
+        print(f"fraction of 1-bits in the array: {bits_set / len(daisy.arr)}")
+        actual_FPR, FPR_from_zero_k, k_lookup_dict, fp_bloom = daisy.get_actual_FPR(negative_data, USE_Q_DIST)
+
 
         print(f"actual_FPR: {actual_FPR}")
 
@@ -269,6 +266,8 @@ if __name__ == '__main__':
             zero_hash_pct = FPR_from_zero_k
             num_bits_set = bits_set
 
+        bloom_FP.append(fp_bloom)
+        model_FP.append(k_lookup_dict[0])
         FPR_result.append(closest_FPR)
         mem_result.append(best_size)
         pct_from_zero_hash_func.append(zero_hash_pct)
@@ -284,6 +283,8 @@ if __name__ == '__main__':
         k_lookup_dict["FPR_actual"] = actual_FPR
         k_lookup_dict["size"] = filter_size
         lookup_k_arr.append(k_lookup_dict)
+
+
         print("-----------------------------------")
         
 
@@ -291,7 +292,7 @@ if __name__ == '__main__':
     print(f"FPR_targets: {FPR_targets}")
     print(f"FPR_result: {FPR_result}")
 
-    output = {"size": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr}
+    output = {"size": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr, "model_FP": model_FP, "bloom_FP": bloom_FP}
     df_out = pd.DataFrame.from_dict(data=output)
     df_out.to_csv(f"{args.out_path}/daisy-BF.csv")
 

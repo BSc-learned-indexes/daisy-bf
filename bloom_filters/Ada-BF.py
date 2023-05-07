@@ -165,6 +165,8 @@ if __name__ == '__main__':
 
     region_negatives_arr = []
     region_positives_arr = []
+    model_FP = []
+    bloom_FP = []
 
     
 
@@ -200,6 +202,9 @@ if __name__ == '__main__':
                 k = k_max_opt - ix
                 test_result += bloom_filter_opt.test(row.url, k)
                 lookup_negative_logger_dict[k] += 1
+
+        model_FP.append(ML_positive)
+        bloom_FP.append(test_result)
 
         FP_items = test_result + ML_positive
 
@@ -258,7 +263,7 @@ if __name__ == '__main__':
     print(mem_arr)
     print(FPR_arr)
 
-    data = {"size": mem_arr, "false_positive_rating": FPR_arr, "num_regions": num_regions_arr, "optimal_c": c_arr}
+    data = {"size": mem_arr, "false_positive_rating": FPR_arr, "num_regions": num_regions_arr, "optimal_c": c_arr, "model_FP": model_FP, "bloom_FP": bloom_FP}
     df_data = pd.DataFrame.from_dict(data=data)
 
     df_data.to_csv(f"{args.out_path}Ada-BF.csv")

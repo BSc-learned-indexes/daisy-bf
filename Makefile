@@ -23,6 +23,9 @@ daisy:
 	@python3 bloom_filters/daisy_BF.py --data_path ./experiments/url/rfc_good/qx_inv_px/exported_urls_qx_inv_px_full_keyset.csv --fpr_data_path ./data/plots/Ada-BF.csv --model_path ./models/model.pickle --tau False --max_iter 30 --normalize True --Q_dist True
 	#@python3 bloom_filters/daisy_BF.py --data_path ./data/scores/exported_urls.csv --fpr_data_path ./data/plots/Ada-BF.csv --model_path ./models/model.pickle --tau True --max_iter 30 --normalize True
 
+tau: 
+	@python3 bloom_filters/daisy_BF_tau.py --data_path ./data/scores/exported_urls_subsample_3457_pos.csv --fpr_data_path ./data/plots/Ada-BF.csv --model_path ./models/model.pickle --tau False --max_iter 13 --normalize True
+
 adabf:
 	@python3 bloom_filters/Ada-BF.py --data_path ./experiments/url/rfc_good/qx_inv_px/exported_urls_qx_inv_px_full_keyset.csv --model_path ./models/model.pickle --num_group_min 8 --num_group_max 12 --c_min 1.6 --c_max 2.5 --min_size 12500 --max_size 26000 --step 1000 --Q_dist True
 
@@ -33,13 +36,15 @@ learned:
 	@python3 bloom_filters/learned_Bloom_filter.py --data_path ./data/scores/exported_urls.csv --model_path ./models/model.pickle --min_size 150000 --max_size 500000 --step 50000
 
 plot_all:
-	@python3 plot_size_FPR.py --file_names PLBF_mem_FPR.csv daisy-BF.csv Ada-BF.csv Standard_BF.csv
+	@python3 plot_size_FPR.py --file_names PLBF_mem_FPR.csv daisy-BF.csv Ada-BF.csv Standard_BF.csv daisy-BF_tau.csv
 
 plot_learned_bf:
-	@python3 plot_size_FPR.py --file_names PLBF_mem_FPR.csv daisy-BF.csv Ada-BF.csv
+	@python3 plot_size_FPR.py --file_names PLBF_mem_FPR.csv daisy-BF.csv Ada-BF.csv daisy-BF_tau.csv
 	#@python3 plot_size_FPR.py --file_names PLBF_mem_FPR.csv daisy-BF.csv Ada-BF.csv
 
 heatmaps:
+	@python3 create_kx_heatmaps.py --file_name daisy-BF_tau_k_insert --is_daisy True
+	@python3 create_kx_heatmaps.py --file_name daisy-BF_tau_k_lookup --is_daisy True
 	@python3 create_kx_heatmaps.py --file_name PLBF_regions_positives
 	@python3 create_kx_heatmaps.py --file_name PLBF_regions_negatives
 	@python3 create_kx_heatmaps.py --file_name ADA-BF_regions_positives

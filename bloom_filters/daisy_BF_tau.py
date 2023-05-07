@@ -242,14 +242,14 @@ if __name__ == '__main__':
     
     FPR_targets = []
     tmp = 0.5
-    while tmp > 10**(-1):
+    while tmp > 10**(-5):
         FPR_targets.append(tmp)
         tmp /= 2
     # FPR_targets.append(10**(-30))
     print(FPR_targets)
 
     for f_i in FPR_targets:
-        f_i = f_i / 6
+        # f_i = f_i / 6
         best_size = None
         closest_FPR = None
         zero_hash_pct = None
@@ -272,6 +272,8 @@ if __name__ == '__main__':
             TAU = (R + L) / 2
         
             print(f"Target FPR: {f_i}")
+            print(f"iter: {i}")
+            print(f"max_i: {MAX_ITERATIONS}")
             n = len(positive_data)
             filter_size = size(positive_data, negative_data, f_i, n)
             print(f"size: {filter_size}")
@@ -309,14 +311,14 @@ if __name__ == '__main__':
         pct_bits_set_arr.append(num_bits_set/filter_size)
         threshold_values.append(best_tau)
 
-        k_insert_dict["FPR_target"] = f_i
-        k_insert_dict["FPR_actual"] = closest_FPR
-        k_insert_dict["size"] = best_size
+        best_k_insert_dict["FPR_target"] = f_i
+        best_k_insert_dict["FPR_actual"] = closest_FPR
+        best_k_insert_dict["size"] = best_size
         insert_k_arr.append(best_k_insert_dict)
 
-        k_lookup_dict["FPR_target"] = f_i
-        k_lookup_dict["FPR_actual"] = closest_FPR
-        k_lookup_dict["size"] = best_size
+        best_lookup_dict["FPR_target"] = f_i
+        best_lookup_dict["FPR_actual"] = closest_FPR
+        best_lookup_dict["size"] = best_size
         lookup_k_arr.append(best_lookup_dict)
 
 
@@ -327,12 +329,12 @@ if __name__ == '__main__':
     print(f"FPR_targets: {FPR_targets}")
     print(f"FPR_result: {FPR_result}")
 
-    output = {"size": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr, "model_FP": model_FP, "bloom_FP": bloom_FP}
+    output = {"size": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr, "model_FP": model_FP, "bloom_FP": bloom_FP, "tau_val": threshold_values}
     df_out = pd.DataFrame.from_dict(data=output)
-    df_out.to_csv(f"{args.out_path}/daisy-BF.csv")
+    df_out.to_csv(f"{args.out_path}/daisy-BF_tau.csv")
 
     df_insert = pd.DataFrame.from_dict(data=insert_k_arr)
-    df_insert.to_csv(f"{args.out_path}/daisy-BF_k_insert.csv")
+    df_insert.to_csv(f"{args.out_path}/daisy-BF_tau_k_insert.csv")
 
     df_lookup = pd.DataFrame.from_dict(data=lookup_k_arr)
-    df_lookup.to_csv(f"{args.out_path}/daisy-BF_k_lookup.csv")
+    df_lookup.to_csv(f"{args.out_path}/daisy-BF_tau_k_lookup.csv")

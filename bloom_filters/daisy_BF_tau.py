@@ -242,7 +242,7 @@ if __name__ == '__main__':
     
     FPR_targets = []
     tmp = 0.5
-    while tmp > 10**(-8):
+    while tmp > 10**(-1):
         FPR_targets.append(tmp)
         tmp /= 2
     # FPR_targets.append(10**(-30))
@@ -257,6 +257,7 @@ if __name__ == '__main__':
         best_fp_bloom = None
         best_lookup_dict = None
         best_k_insert_dict = None
+        best_tau = None
 
         L = 0
         R = 1
@@ -291,6 +292,7 @@ if __name__ == '__main__':
                 best_fp_bloom = fp_bloom
                 best_lookup_dict = k_lookup_dict
                 best_k_insert_dict = k_insert_dict
+                best_tau = TAU
 
             if actual_FPR < f_i:
                 R = TAU
@@ -299,12 +301,13 @@ if __name__ == '__main__':
             i += 1
 
         bloom_FP.append(best_fp_bloom)
-        model_FP.append(best_k_lookup_dict[0])
+        model_FP.append(best_lookup_dict[0])
         FPR_result.append(closest_FPR)
         mem_result.append(best_size)
         pct_from_zero_hash_func.append(zero_hash_pct)
         bits_set_arr.append(num_bits_set)
         pct_bits_set_arr.append(num_bits_set/filter_size)
+        threshold_values.append(best_tau)
 
         k_insert_dict["FPR_target"] = f_i
         k_insert_dict["FPR_actual"] = closest_FPR
@@ -314,7 +317,7 @@ if __name__ == '__main__':
         k_lookup_dict["FPR_target"] = f_i
         k_lookup_dict["FPR_actual"] = closest_FPR
         k_lookup_dict["size"] = best_size
-        lookup_k_arr.append(best_k_lookup_dict)
+        lookup_k_arr.append(best_lookup_dict)
 
 
         print("-----------------------------------")

@@ -29,6 +29,7 @@ and a high qx (it's queried often).
 df['qx'] = 1 - df['score']
 
 
+
 # Add query count
 """"
 Elements with a high qx are queried more often.
@@ -38,6 +39,8 @@ with the lowest qx.
 """
 df['query_count'] = df['qx'].apply(lambda x: math.ceil(x * qx_mult))
 
+# Edge case: if qx is 0, then query_count is 1
+df.loc[df['query_count'] == 0.0, 'query_count'] = 1.0
 
 df.to_csv(f'./data/scores/{file_name}_with_qx.csv', index=False)
 

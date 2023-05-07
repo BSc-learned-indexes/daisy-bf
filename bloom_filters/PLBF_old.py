@@ -84,7 +84,6 @@ def DP_KL_table(train_negative, positive_sample, num_group_max):
     min_score = min(np.min(positive_score), np.min(negative_score))
     max_score = min(np.max(positive_score), np.max(negative_score))
     score_partition = np.arange(min_score-10**(-10),max_score+10**(-10)+interval,interval)
-
     h = [np.sum((score_low<=negative_score) & (negative_score<score_up)) for score_low, score_up in zip(score_partition[:-1], score_partition[1:])]
     h = np.array(h)
     ## Merge the interval with less than 5 nonkey
@@ -98,14 +97,12 @@ def DP_KL_table(train_negative, positive_sample, num_group_max):
     h = np.array(h)
     g = [np.sum((score_low<=positive_score) & (positive_score<score_up)) for score_low, score_up in zip(score_partition[:-1], score_partition[1:])]
     g = np.array(g)
-
     ## Merge the interval with less than 5 keys
     delete_ix = []
     for i in range(len(g)):
         if g[i] < 5:
             delete_ix += [i]
     score_partition = np.delete(score_partition, [i+1 for i in delete_ix])
-
     ## Find the counts in each interval
     h = [np.sum((score_low<=negative_score) & (negative_score<score_up)) for score_low, score_up in zip(score_partition[:-1], score_partition[1:])]
     h = np.array(h)
@@ -118,11 +115,9 @@ def DP_KL_table(train_negative, positive_sample, num_group_max):
     k = num_group_max
     optim_KL = np.zeros((n,k))
     optim_partition = [[0]*k for _ in range(n)]
-
     for i in range(n):
         optim_KL[i,0] = np.sum(g[:(i+1)]) * np.log2(sum(g[:(i+1)])/sum(h[:(i+1)]))
         optim_partition[i][0] = [i]
-
     for j in range(1,k):
         for m in range(j,n):
             candidate_par = np.array([optim_KL[i][j-1]+np.sum(g[i:(m+1)])*np.log2(np.sum(g[i:(m+1)])/np.sum(h[i:(m+1)])) for i in range(j-1,m)])
@@ -140,7 +135,6 @@ def DP_KL_table(train_negative, positive_sample, num_group_max):
 def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative, positive_sample, optim_partition, score_partition):
     FP_opt = train_negative.shape[0]
     best_FPR = 1
-
     for num_group in range(num_group_min, num_group_max+1):
         ### Determine the thresholds    
         thresholds = np.zeros(num_group + 1)
@@ -149,7 +143,6 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
         inter_thresholds_ix = optim_partition[-1][num_group-1]
         inter_thresholds = score_partition[inter_thresholds_ix]
         thresholds[1:-1] = inter_thresholds
-
         ### Count the keys of each group
         query = positive_sample['url']
         score = positive_sample['score']
@@ -162,12 +155,14 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
             count_nonkey[j] = sum((negative_score >= thresholds[j]) & (negative_score < thresholds[j + 1]))
             count_key[j] = sum((positive_score >= thresholds[j]) & (positive_score < thresholds[j + 1]))
             query_group.append(query[(score >= thresholds[j]) & (score < thresholds[j + 1])])
-
-
         ### Search the Bloom filters' size
         def R_size(c):
             R = 0
             for j in range(len(count_key)-1):
+                if(count_nonkey[j] == 0):
+                    count_nonkey[j] = 1
+                if(count_key[j] == 0):
+                    count_key[j] = 1
                 R += max(1, count_key[j]/np.log(0.618)*(np.log(count_key[j]/count_nonkey[j])+c))
             return R
         
@@ -181,11 +176,15 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
             elif midval >= R_sum: 
                 lo = mid
         c = mid
-
         R = np.zeros(num_group)
         for j in range(num_group-1):
+            if(count_nonkey[j] == 0):
+                    count_nonkey[j] = 1
+            if(count_key[j] == 0):
+                count_key[j] = 1
             R[j] = int(max(1, count_key[j]/np.log(0.618)*(np.log(count_key[j]/count_nonkey[j])+c)))
-        
+
+        # print(count_key, R)
         Bloom_Filters = []
         for j in range(int(num_group - 1)):
             if count_key[j]==0:
@@ -193,19 +192,24 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
             else:
                 Bloom_Filters.append(BloomFilter(count_key[j], R[j]))
                 Bloom_Filters[j].insert(query_group[j])
-
         ### Test querys
-        negative_train = train_negative.loc[(train_negative['score'] < thresholds[-2]), ['score', "url"]]
-        ML_positive = len(train_negative[train_negative["score"] >=thresholds[-2]])
+        ML_positive = train_negative.loc[(train_negative['score'] >= thresholds[-2]), 'url']
+        query_negative = train_negative.loc[(train_negative['score'] < thresholds[-2]), 'url']
+        score_negative = train_negative.loc[(train_negative['score'] < thresholds[-2]), 'score']
+        test_result = np.zeros(len(query_negative))
+        ss = 0
+        for score_s, query_s in zip(score_negative, query_negative):
+            ix = min(np.where(score_s < thresholds)[0]) - 1
+            test_result[ss] = Bloom_Filters[ix].test(query_s)
+            ss += 1
 
-        test_result = 0
-
-        for row in negative_train.itertuples(index=False):
-            ix = min(np.where(row.score < thresholds)[0]) - 1
-            test_result += Bloom_Filters[ix].test(row.url)
-        
-        FP_items = test_result + ML_positive
+        FP_items = sum(test_result) + len(ML_positive)
         FPR = FP_items/len(train_negative)
+        # print(f'Train neg len:  {len(train_negative)}')
+        # print(f'ML pos len:  {len(ML_positive)}')
+        # print(f'Test result sum:  {sum(test_result)}')
+        # print(f'False positive rate:  {FP_items/len(train_negative)}')
+        # print(f'-----------------------------------------')
         print('False positive items: {}, FPR: {} Number of groups: {}'.format(FP_items, FPR, num_group))
 
         if FP_opt > FP_items:
@@ -213,7 +217,6 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
             FP_opt = FP_items
             Bloom_Filters_opt = Bloom_Filters
             thresholds_opt = thresholds
-
     return Bloom_Filters_opt, thresholds_opt, best_FPR
 
 

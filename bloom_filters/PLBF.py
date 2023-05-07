@@ -231,6 +231,8 @@ if __name__ == '__main__':
     FPR_arr = []
     region_negatives_arr = []
     region_positives_arr = []
+    model_FP = []
+    bloom_FP = []
 
     i = results.min_size
     while i <= results.max_size:
@@ -266,7 +268,8 @@ if __name__ == '__main__':
                 test_result += Bloom_Filters_opt[ix].test(row.url)
                 lookup_negative_logger_dict[ix] += 1
 
-
+        model_FP.append(ML_positive)
+        bloom_FP.append(test_result)
 
         FP_items = test_result + ML_positive
 
@@ -295,7 +298,7 @@ if __name__ == '__main__':
         region_negatives_arr.append(lookup_negative_logger_dict)
 
 
-        '''Stage 3: Run PLBF on all the positve samples'''
+        '''Stage 3: Run PLBF on all the positive samples'''
         ### Test queries
         lookup_positive_logger_dict = defaultdict(int)
 
@@ -330,7 +333,7 @@ if __name__ == '__main__':
         bar.next()
 
 
-    data = {"size": mem_arr, "false_positive_rating": FPR_arr}
+    data = {"size": mem_arr, "false_positive_rating": FPR_arr, "model_FP": model_FP, "bloom_FP": bloom_FP}
     df_data = pd.DataFrame.from_dict(data=data)
 
     df_data.to_csv(f"{results.out_path}PLBF_mem_FPR.csv")

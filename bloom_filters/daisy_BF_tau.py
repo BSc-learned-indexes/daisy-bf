@@ -33,6 +33,7 @@ def init_args():
     return parser.parse_args()
 
 TAU = 1
+PX_MAX = 1
 
 def load_data():
     if (USE_Q_DIST):
@@ -43,7 +44,7 @@ def load_data():
         data_path = DATA_PATH
 
     data = pd.read_csv(data_path)
-    set_px(data, NORMALIZE_SCORES)
+    PX_MAX = set_px(data, NORMALIZE_SCORES)
     set_qx(data, CONST_QX, USE_Q_DIST)
     positive_sample = data.loc[(data['label']==1)]
     negative_sample = data.loc[(data['label']==-1)]
@@ -63,27 +64,30 @@ def load_data():
     # print(f"n: {len(positive_sample)}")
     print(f"|u|/n = {len(data)/len(positive_sample)} >= F") 
 
-    return data, positive_sample, negative_sample
+    return data, positive_sample, negative_sample, PX_MAX
 
 def k_hash(F, px, qx, n):
-    if px >= (1/F) * TAU:
+    # if TAU*(1/F) < px:
+    #     k_x = 0
+    # elif TAU <= px and px <= TAU*(1/F):
+    #     # print(f"Px: {px}, TAU: {TAU}, F: {F}")
+    #     k_x = math.log((1/F)*(TAU/px), 2)
+    # elif px < TAU:
+    #     k_x = math.log(1/F, 2)
+    # else:
+    #     raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
+    # print(f"qx: {qx}")
+    
+    if TAU <= F * px or px > (1 / n):
         k_x = 0
-    elif TAU <= px <= (1/F) * TAU:
-        k_x = math.log(TAU/(F*px), 2)
-    elif px < TAU:
+    elif F * px < TAU and TAU <= px:
+        k_x = math.log((1/F)*(TAU/px), 2)
+    elif TAU > px:
         k_x = math.log(1/F, 2)
+    # elif TAU > (F/n) and ((F/n) < px and px <= 1/n):
+    #     k_x = math.log(1/(n*px), 2)
     else:
         raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
-    # if qx <= F * px or px > (1 / n): 
-    #     k_x = 0
-    # elif F * px < qx and qx <= min(px, (F/n)):
-    #     k_x = math.log((1/F)*(qx/px), 2)
-    # elif qx > px and (F/n) >= px:
-    #     k_x = math.log(1/F, 2)
-    # elif qx > (F/n) and ((F/n) < px and px <= 1/n):
-    #     k_x = math.log(1/(n*px), 2)
-    # else: 
-    #     raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
 
     return math.ceil(k_x)
 
@@ -110,8 +114,10 @@ def set_px(data, normalize):
         score_sum = data["score"].sum()
         print(f"normalizing the scores by dividing with score sum: {score_sum}")
         data["px"] = data["score"].div(score_sum)
+        return 1/score_sum
     else: 
         data["px"] = data["score"]
+        return 1
 
 def set_qx(data, const_qx, Q_dist):
     if const_qx and not Q_dist:
@@ -219,7 +225,7 @@ if __name__ == '__main__':
     NORMALIZE_SCORES = args.normalize
     USE_Q_DIST = args.Q_dist
 
-    data, positive_data, negative_data = load_data()
+    data, positive_data, negative_data, PX_MAX = load_data()
 
     # num_keys = int(len(negative_data)*0.01)
     # print(f"number of keys in the set: {num_keys}")
@@ -242,7 +248,7 @@ if __name__ == '__main__':
     
     FPR_targets = []
     tmp = 0.5
-    while tmp > 10**(-5):
+    while tmp > 10**(-8):
         FPR_targets.append(tmp)
         tmp /= 2
     # FPR_targets.append(10**(-30))
@@ -260,7 +266,9 @@ if __name__ == '__main__':
         best_tau = None
 
         L = 0
-        R = 1
+        R = PX_MAX
+        print("PXMAX IS EQ::::")
+        print(PX_MAX)
         TAU = (R + L) / 2
 
         best_size = None
@@ -270,6 +278,7 @@ if __name__ == '__main__':
         i = 0
         while MAX_ITERATIONS > i:
             TAU = (R + L) / 2
+            print(f"TAU: {TAU}")
         
             print(f"Target FPR: {f_i}")
             print(f"iter: {i}")

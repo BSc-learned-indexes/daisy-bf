@@ -28,7 +28,7 @@ class BloomFilter():
         self.n = n
         self.hash_len = int(hash_len)
         if (self.n > 0) & (self.hash_len > 0):
-            self.k = max(1,int(self.hash_len/n*0.6931472))
+            self.k = max(1,int(self.hash_len/n*np.log(2)))
         elif (self.n==0):
             self.k = 1
         self.h = []

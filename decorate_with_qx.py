@@ -26,7 +26,7 @@ and a high qx (it's queried often).
 
 
 
-df['qx'] = 1 - df['score']
+df['qx'] = df['score']
 
 
 

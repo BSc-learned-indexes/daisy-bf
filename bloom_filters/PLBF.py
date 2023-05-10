@@ -72,7 +72,8 @@ else:
 data = pd.read_csv(data_path)
 negative_sample = data.loc[(data['label']==-1)]
 positive_sample = data.loc[(data['label']==1)]
-train_negative = negative_sample.sample(frac = results.frac, random_state=42)
+train_negative = negative_sample
+# .sample(frac = results.frac, random_state=42)
 negative_score = negative_sample['score']
 positive_score = positive_sample['score']
 

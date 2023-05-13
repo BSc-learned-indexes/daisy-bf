@@ -1,13 +1,13 @@
+"""
+This file is a modified version of the original found here: https://github.com/DAIZHENWEI/Ada-BF
+"""
 import numpy as np
 import pandas as pd
 from sklearn.utils import murmurhash3_32
 from random import randint
 import argparse
-import os
 from progress.bar import Bar
 import math
-
-
 
 def hashfunc(m, hash_seed=None):
     ss = randint(1, 99999999)
@@ -15,10 +15,8 @@ def hashfunc(m, hash_seed=None):
         if hash_seed is None:
             return murmurhash3_32(str(x),seed=ss)%m
         else:
-            #print(f"hash_seed: {hash_seed}")
             return murmurhash3_32(str(x),seed=hash_seed)%m
     return hash_m
-
 
 '''
 Class for Standard Bloom filter
@@ -67,8 +65,7 @@ class BloomFilter():
                     ss += 1
         return test_result
 
-'''Run Bloom filter'''
-
+'''Test Bloom filter'''
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', action="store", dest="data_path", type=str, required=True,
@@ -82,15 +79,11 @@ if __name__ == '__main__':
     parser.add_argument('--out_path', action="store", dest="out_path", type=str,
                         required=False, help="path of the output", default="./data/plots/")
     parser.add_argument('--Q_dist', action="store", dest="Q_dist", type=bool, required=False, default=False, help="uses query distribution")
-
     args = parser.parse_args()
 
 
     MEM_ARR = []
     FPR_ARR = []
-
-
-
     DATA_PATH   = args.data_path
     MAX_SIZE    = args.max_size
     MIN_SIZE    = args.min_size
@@ -117,12 +110,12 @@ if __name__ == '__main__':
     while i <= MAX_SIZE:
         bar.next()
         print(f"current memory allocated: {i}")
+        # Create bloom filter
         bloom_filter = BloomFilter(n, i)
         bloom_filter.insert(url)
         url_negative = negative_sample['url']
 
-        # ### Test queries
-        
+        # Test queries
         if Q_dist:
             sum_n_queried = 0
             test_result = 0
@@ -135,18 +128,14 @@ if __name__ == '__main__':
             n1 = bloom_filter.test(url_negative, single_key=False)
             FPR = sum(n1) / len(negative_sample)
 
-
         MEM_ARR.append(i)
         FPR_ARR.append(FPR)
         print('False positive rate: ', FPR)
         i += STEP
 
-    
     # Write results to csv
-
     data = {"size": MEM_ARR, "false_positive_rating": FPR_ARR}
     df_data = pd.DataFrame.from_dict(data=data)
-
     df_data.to_csv(f"{OUT_PATH}Standard_BF.csv")
 
     bar.finish()

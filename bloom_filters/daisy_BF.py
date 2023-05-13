@@ -5,7 +5,6 @@ from Bloom_filter import hashfunc
 import math 
 import os
 from collections import defaultdict
-print(os.getcwd())
 
 def init_args():
     parser = argparse.ArgumentParser()
@@ -24,11 +23,8 @@ def init_args():
     parser.add_argument('--WITHIN_TEN_PCT', action="store", dest="within_ten_pct", type=bool,
                         required=False, help="stop trying to find a new threshold if the current is within 10 \% of the target", default=True)
     parser.add_argument('--model_path', action="store", dest="model_path", type=str, required=True, help="path of the model")
-
     parser.add_argument('--tau', action="store", dest="tau", type=bool, required=False, default=False, help="searches for best threshold value for tau")
-
     parser.add_argument('--normalize_scores', action="store", dest="normalize", type=bool, required=False, default=False, help="normalizes px and qx scores")
-
     parser.add_argument('--Q_dist', action="store", dest="Q_dist", type=bool, required=False, default=False, help="uses q_dist for daisy")
     return parser.parse_args()
 
@@ -36,7 +32,6 @@ def load_data():
     if (USE_Q_DIST):
         splitted = DATA_PATH.split(".csv")
         data_path = splitted[0] + "_with_qx.csv"
-        print(data_path)
     else:
         data_path = DATA_PATH
 
@@ -47,53 +42,12 @@ def load_data():
     negative_sample = data.loc[(data['label']==-1)]
 
     total = 0
-    total_2 = 0
     for row in data.itertuples():
         total += row.px * row.qx
-        total_2 += row.px * (1/len(data))
     print(f"sum(px*qx): {total}, n: {len(positive_sample)}")
     print(f"sum(px*qx) <= F/n, when F=0.0001: {total} <= {0.0001/len(positive_sample)}")
-    # print(f"sum(px*qx): {total}, n: {len(positive_sample)}")
-    # print(f"sum(px*1/u): {total_2}, n: {len(positive_sample)}")
-    # print(f"sum(px*qx) * n = {total * len(positive_sample)} <= F")
-    # print(f"sum(px*1/u) * n = {total_2 * len(positive_sample)} <= F")
-    # print(f"|u|: {len(data)}")
-    # print(f"n: {len(positive_sample)}")
     print(f"|u|/n = {len(data)/len(positive_sample)} >= F") 
-
     return data, positive_sample, negative_sample
-
-def k_hash(F, px, qx, n):
-    if qx <= F * px or px > (1 / n): 
-        k_x = 0
-    elif F * px < qx and qx <= min(px, (F/n)):
-        k_x = math.log((1/F)*(qx/px), 2)
-    elif qx > px and (F/n) >= px:
-        k_x = math.log(1/F, 2)
-    elif qx > (F/n) and ((F/n) < px and px <= 1/n):
-        k_x = math.log(1/(n*px), 2)
-    else: 
-        raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
-
-    return math.ceil(k_x)
-
-def lower_bound(positive_data, negative_data, F, n):
-    total = 0
-    for row in positive_data.itertuples(index=False):
-        k = k_hash(F, row.px, row.qx, n)
-        total += row.px * k
-
-    for row in negative_data.itertuples(index=False):
-        k = k_hash(F, row.px, row.qx, n)
-        total += row.px * k
-
-    return n * total
-
-def size(positive_data, negative_data, F_target, n):
-    lb = lower_bound(positive_data, negative_data, F_target, n)
-    print(lb)
-    size = math.log(math.e, 2) * lb
-    return math.ceil(size)
 
 def set_px(data, normalize):
     if normalize:
@@ -115,6 +69,40 @@ def set_qx(data, const_qx, Q_dist):
         data["qx"] = data["qx"].div(query_sum)
         print(f"sum of qx is: {data['qx'].sum()}")
 
+def k_hash(F, px, qx, n):
+    if qx <= F * px or px > (1 / n): 
+        k_x = 0
+    elif F * px < qx and qx <= min(px, (F/n)):
+        k_x = math.log((1/F)*(qx/px), 2)
+    elif qx > px and (F/n) >= px:
+        k_x = math.log(1/F, 2)
+    elif qx > (F/n) and ((F/n) < px and px <= 1/n):
+        k_x = math.log(1/(n*px), 2)
+    else: 
+        raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
+
+    return math.ceil(k_x)
+
+def lower_bound(positive_data, negative_data, F, n):
+    total = 0
+
+    # get px * k for keys
+    for row in positive_data.itertuples(index=False):
+        k = k_hash(F, row.px, row.qx, n)
+        total += row.px * k
+
+    # get px * k for non-keys
+    for row in negative_data.itertuples(index=False):
+        k = k_hash(F, row.px, row.qx, n)
+        total += row.px * k
+
+    return n * total
+
+def size(positive_data, negative_data, F_target, n):
+    lb = lower_bound(positive_data, negative_data, F_target, n)
+    size = math.log(math.e, 2) * lb
+    return math.ceil(size)
+
 def get_target_actual_FPR_from_csv(path):
     data = pd.read_csv(path)
     return data['false_positive_rating'].values.tolist()
@@ -133,7 +121,6 @@ class Daisy_BloomFilter():
         for _ in range(max_hash_functions):
             hash_functions.append(hashfunc(self.m))
         return hash_functions
-    
 
     def insert(self, key, px, qx):
         k_x = k_hash(self.F, px, qx, self.n)
@@ -143,7 +130,6 @@ class Daisy_BloomFilter():
             arr_index = self.hash_functions[i](key)
             self.arr[arr_index] = 1
         return k_x
-
 
     """
     lookup returns:
@@ -168,7 +154,6 @@ class Daisy_BloomFilter():
     def get_actual_FPR(self, data, Q_dist):
         n_queries = 0
         k_lookup_dict = defaultdict(int)
-        from_model = 0
         total = 0
         if Q_dist:
             for row in data.itertuples(index=False):
@@ -184,15 +169,13 @@ class Daisy_BloomFilter():
                 k_lookup_dict[k_x] += 1
         return total / n_queries, k_lookup_dict[0] / n_queries, k_lookup_dict, total-k_lookup_dict[0]
     
-
     def populate(self, data):
         logger = defaultdict(int)
         for row in data.itertuples(index=False):
             kx = self.insert(row.url, row.px, row.qx)
             logger[kx] += 1
-        print(f"populate hash dist: {logger}")
+        print(f"hash functions for inserts: {logger}")
         return logger
-
 
 if __name__ == '__main__':
 
@@ -211,20 +194,12 @@ if __name__ == '__main__':
 
     data, positive_data, negative_data = load_data()
 
-    # num_keys = int(len(negative_data)*0.01)
-    # print(f"number of keys in the set: {num_keys}")
-    # positive_data = positive_data.sample(n=num_keys, random_state=None)
-    # all_data = pd.concat([positive_data, negative_data], ignore_index=True)
-    # all_data.to_csv("./data/scores/daisy-out.csv")
-
     mem_result = []
-    # FPR_targets = get_target_actual_FPR_from_csv(FPR_PATH)
     FPR_result = []
     threshold_values = []
     pct_from_zero_hash_func = []
     bits_set_arr = []
     pct_bits_set_arr = []
-
     insert_k_arr = []
     lookup_k_arr = []
     model_FP = []
@@ -235,44 +210,35 @@ if __name__ == '__main__':
     while tmp > 10**(-12):
         FPR_targets.append(tmp)
         tmp /= 2
-    # FPR_targets.append(10**(-30))
-    print(FPR_targets)
+    print(f"false positive targets: {FPR_targets}")
 
     for f_i in FPR_targets:
         f_i = f_i / 6
-        best_size = None
-        closest_FPR = None
-        zero_hash_pct = None
-        num_bits_set = None
-        
         print(f"Target FPR: {f_i}")
         n = len(positive_data)
+
+        # Calculate size for Daisy
         filter_size = size(positive_data, negative_data, f_i, n)
         print(f"size: {filter_size}")
 
+        # Insert keys
         daisy = Daisy_BloomFilter(n, filter_size, f_i)
         k_insert_dict = daisy.populate(positive_data)
         bits_set = daisy.arr.sum()
         print(f"sum of 1-bits in the array: {bits_set}")
         print(f"fraction of 1-bits in the array: {bits_set / len(daisy.arr)}")
+
+        # Test Daisy
         actual_FPR, FPR_from_zero_k, k_lookup_dict, fp_bloom = daisy.get_actual_FPR(negative_data, USE_Q_DIST)
-
-
         print(f"actual_FPR: {actual_FPR}")
-
-        if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
-            closest_FPR = actual_FPR
-            best_size = filter_size
-            zero_hash_pct = FPR_from_zero_k
-            num_bits_set = bits_set
 
         bloom_FP.append(fp_bloom)
         model_FP.append(k_lookup_dict[0])
-        FPR_result.append(closest_FPR)
-        mem_result.append(best_size)
-        pct_from_zero_hash_func.append(zero_hash_pct)
-        bits_set_arr.append(num_bits_set)
-        pct_bits_set_arr.append(num_bits_set/filter_size)
+        FPR_result.append(actual_FPR)
+        mem_result.append(filter_size)
+        pct_from_zero_hash_func.append(FPR_from_zero_k)
+        bits_set_arr.append(bits_set)
+        pct_bits_set_arr.append(bits_set/filter_size)
 
         k_insert_dict["FPR_target"] = f_i
         k_insert_dict["FPR_actual"] = actual_FPR
@@ -283,10 +249,6 @@ if __name__ == '__main__':
         k_lookup_dict["FPR_actual"] = actual_FPR
         k_lookup_dict["size"] = filter_size
         lookup_k_arr.append(k_lookup_dict)
-
-
-        print("-----------------------------------")
-        
 
     print(f"size_arr: {mem_result}")
     print(f"FPR_targets: {FPR_targets}")

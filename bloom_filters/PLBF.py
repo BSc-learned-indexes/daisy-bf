@@ -1,14 +1,16 @@
+"""
+This file is a modified version of the original found here: https://github.com/DAIZHENWEI/Ada-BF
+"""
 import numpy as np
 import pandas as pd
-import argparse
 import os
+import argparse
 import argparse
 import pickle
 from Bloom_filter import BloomFilter
 from progress.bar import Bar
 import math
 from collections import defaultdict
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_path', action="store", dest="data_path", type=str, required=True,
@@ -23,7 +25,6 @@ parser.add_argument('--num_group_max', action="store", dest="max_group", type=in
                     help="Maximum number of groups")
 parser.add_argument('--frac', action="store", dest="frac", type=float, default = 0.3,
                     help="fraction of training samples")
-
 parser.add_argument('--min_size', action="store", dest="min_size", type=int, default = 100_000,
                     help="minimum memory to allocate for model + bloom filters")
 parser.add_argument('--max_size', action="store", dest="max_size", type=int, default = 200_000,
@@ -33,15 +34,12 @@ parser.add_argument('--step', action="store", dest="step", type=int, default = 5
 parser.add_argument('--out_path', action="store", dest="out_path", type=str,
                     required=False, help="path of the output", default="./data/plots/")
 parser.add_argument('--Q_dist', action="store", dest="Q_dist", type=bool, required=False, default=False, help="uses query distribution")
-
-
 results = parser.parse_args()
+
 DATA_PATH = results.data_path
 Q_dist = results.Q_dist
-print(f"QDIST VALUE: {Q_dist}")
 num_group_min = results.min_group
 num_group_max = results.max_group
-model_size = 0 #os.path.getsize(results.model_path)
 if results.model_type == "SVM":
     clf = pickle.load(open(results.model_path, 'rb'))
     shape = clf['model'].support_vectors_.shape
@@ -52,31 +50,25 @@ elif results.model_type == "NN":
     print("Total number of parameters: {}, model size = {} KB".format(total_para, total_para*32/1024))
     model_size = total_para * 4 * 8
 else:
-    model_size *= 8
-#R_sum = results.M_budget - model_size
+    model_size = 0 #os.path.getsize(results.model_path) * 8 #get it to bits instead of byte
+# comment line below to include model size
 model_size = 0
-
-
 
 '''
 Load the data and select training data
 '''
-
 if Q_dist:
     splitted = DATA_PATH.split(".csv")
     data_path = splitted[0] + "_with_qx.csv"
-    print(data_path)
 else:
     data_path = DATA_PATH
 
 data = pd.read_csv(data_path)
 negative_sample = data.loc[(data['label']==-1)]
 positive_sample = data.loc[(data['label']==1)]
-train_negative = negative_sample
-# .sample(frac = results.frac, random_state=42)
+train_negative = negative_sample.sample(frac = results.frac, random_state=42) # if results are bad, increase sample fraction.
 negative_score = negative_sample['score']
 positive_score = positive_sample['score']
-
 
 def DP_KL_table(train_negative, positive_sample, num_group_max):
     negative_score = train_negative['score']
@@ -135,9 +127,6 @@ def DP_KL_table(train_negative, positive_sample, num_group_max):
                 optim_partition[m][j] = [ix]   
     return optim_partition, score_partition
 
-
-
-
 def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative, positive_sample, optim_partition, score_partition):
     FP_opt = train_negative.shape[0]
     best_FPR = 1
@@ -163,7 +152,6 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
             count_nonkey[j] = sum((negative_score >= thresholds[j]) & (negative_score < thresholds[j + 1]))
             count_key[j] = sum((positive_score >= thresholds[j]) & (positive_score < thresholds[j + 1]))
             query_group.append(query[(score >= thresholds[j]) & (score < thresholds[j + 1])])
-
 
         ### Search the Bloom filters' size
         def R_size(c):
@@ -217,8 +205,6 @@ def Find_Optimal_Parameters(num_group_min, num_group_max, R_sum, train_negative,
 
     return Bloom_Filters_opt, thresholds_opt, best_FPR
 
-
-
 '''
 Implement PLBF
 '''
@@ -226,7 +212,6 @@ if __name__ == '__main__':
 
     #Progress bar 
     bar = Bar('Creating PLBF', max=math.ceil((results.max_size - results.min_size)/results.step))
-
 
     mem_arr = []
     FPR_arr = []
@@ -243,10 +228,7 @@ if __name__ == '__main__':
         optim_partition, score_partition = DP_KL_table(train_negative, positive_sample, num_group_max)
         Bloom_Filters_opt, thresholds_opt, _= Find_Optimal_Parameters(num_group_min, num_group_max, (i - model_size), train_negative, positive_sample, optim_partition, score_partition)
 
-
-
-        '''Stage 2: Run PLBF on all the negative samples'''
-        # ### Test queries
+        '''Stage 2: Test PLBF on all the negative samples'''
         test_result = 0
         lookup_negative_logger_dict = defaultdict(int)
         
@@ -257,20 +239,16 @@ if __name__ == '__main__':
             for row in negative_data.itertuples(index=False):
                 sum_n_queried += row.query_count
                 ix = min(np.where(row.score < thresholds_opt)[0]) - 1
-                # print(thresholds_opt)
                 test_result += Bloom_Filters_opt[ix].test(row.url) * row.query_count
                 lookup_negative_logger_dict[ix] += row.query_count
         else:
             ML_positive = len(negative_sample[negative_sample["score"] >=thresholds_opt[-2]])
             negative_data = negative_sample.loc[(negative_sample['score'] < thresholds_opt[-2]), ['score', "url"]]
             for row in negative_data.itertuples(index=False):
-                # We test if its a positive from the bloom filter
                 ix = min(np.where(row.score < thresholds_opt)[0]) - 1
                 test_result += Bloom_Filters_opt[ix].test(row.url)
                 lookup_negative_logger_dict[ix] += 1
 
-        model_FP.append(ML_positive)
-        bloom_FP.append(test_result)
 
         FP_items = test_result + ML_positive
 
@@ -281,50 +259,38 @@ if __name__ == '__main__':
             FPR = FP_items / len(negative_sample)
             print('False positive items: {}; FPR: {}; Size of quries: {}'.format(FP_items, FPR, len(negative_sample)))
 
-        print(f"test results: {test_result}")
-        print(f"Test results from ML-model: {ML_positive}")
-        if len(thresholds_opt)-2 in lookup_negative_logger_dict:
-            print(f"trying to overwrite lookup_negative_logger_dict[{len(thresholds_opt)-2}] with ML_positive - exitting")
-            exit(1)
         lookup_negative_logger_dict[len(thresholds_opt)-2] = ML_positive
-        print(lookup_negative_logger_dict)
-        print(f"thresholds_opt: {thresholds_opt}")
-        print(f"thresholds_opt len: {len(thresholds_opt)}")
         lookup_negative_logger_dict["FPR_actual"] = FPR
         lookup_negative_logger_dict["size"] = i
-        print(f"negative lookup dict: {lookup_negative_logger_dict}")
 
+        model_FP.append(ML_positive)
+        bloom_FP.append(test_result)
         mem_arr.append(i)
         FPR_arr.append(FPR)
         region_negatives_arr.append(lookup_negative_logger_dict)
 
+        print(f"test results: {test_result}")
+        print(f"Test results from ML-model: {ML_positive}")
+        print(lookup_negative_logger_dict)
+        print(f"thresholds_opt: {thresholds_opt}")
+        print(f"thresholds_opt len: {len(thresholds_opt)}")
+        print(f"negative lookup dict: {lookup_negative_logger_dict}")
 
-        '''Stage 3: Run PLBF on all the positive samples'''
+        '''Stage 3: Test PLBF on all the positive samples'''
         ### Test queries
         lookup_positive_logger_dict = defaultdict(int)
 
-        # if Q_dist:
-        #     ML_positive = positive_sample.loc[(positive_sample['score'] >= thresholds_opt[-2]), 'query_count'].sum()
-        #     positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url", "query_count"]]
-        #     for row in positive_data.itertuples(index=False):
-        #         ix = min(np.where(row.score < thresholds_opt)[0]) - 1
-        #         lookup_positive_logger_dict[ix] += row.query_count
-        # else:
         ML_positive = len(positive_sample[positive_sample["score"] >=thresholds_opt[-2]])
         positive_data = positive_sample.loc[(positive_sample['score'] < thresholds_opt[-2]), ['score', "url"]]
         for row in positive_data.itertuples(index=False):
             ix = min(np.where(row.score < thresholds_opt)[0]) - 1
             lookup_positive_logger_dict[ix] += 1
 
-        if len(thresholds_opt)-2 in lookup_positive_logger_dict:
-            print(f"trying to overwrite lookup_positive_logger_dict[{len(thresholds_opt)-2}] with ML_positive - exitting")
-            exit(1)
         lookup_positive_logger_dict[len(thresholds_opt)-2] = ML_positive
         lookup_positive_logger_dict["FPR_actual"] = FPR
         lookup_positive_logger_dict["size"] = i
-
-        print(f"positive lookup dict: {lookup_positive_logger_dict}")
         region_positives_arr.append(lookup_positive_logger_dict)
+        print(f"positive lookup dict: {lookup_positive_logger_dict}")
 
         tmp_data = {"size": mem_arr, "false_positive_rating": FPR_arr}
         tmp_df_data = pd.DataFrame.from_dict(data=tmp_data)
@@ -336,7 +302,6 @@ if __name__ == '__main__':
 
     data = {"size": mem_arr, "false_positive_rating": FPR_arr, "model_FP": model_FP, "bloom_FP": bloom_FP}
     df_data = pd.DataFrame.from_dict(data=data)
-
     df_data.to_csv(f"{results.out_path}PLBF_mem_FPR.csv")
 
     df_negative_regions = pd.DataFrame.from_dict(data=region_negatives_arr)

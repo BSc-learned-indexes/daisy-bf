@@ -6,10 +6,9 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--file_name', action="store", dest="data_path", type=str, required=True, help="name of the dataset")
-
 parser.add_argument('--is_daisy', action="store", dest="is_daisy", type=bool, required=False, help="True if the file is from the daisy bloom filter", default=False)
 
-
+# helper functions from matplotlib:
 def heatmap(data, row_labels, col_labels, x_ax_label="", y_ax_label="", ax=None,
             cbar_kw=None, cbarlabel="", **kwargs):
     """
@@ -36,7 +35,6 @@ def heatmap(data, row_labels, col_labels, x_ax_label="", y_ax_label="", ax=None,
 
     if ax is None:
         ax = plt.gca()
-
     if cbar_kw is None:
         cbar_kw = {}
 
@@ -152,8 +150,6 @@ if IS_DAISY:
     im, cbar = heatmap(matrix, rows, cols, "Number of Hash Functions", "False Positive Rate", ax=ax, cmap="Wistia", cbarlabel="% of elements")
 else:
     im, cbar = heatmap(matrix, rows, cols, "Region", "False Positive Rate", ax=ax, cmap="Wistia", cbarlabel="% of elements")
-
-
 texts = annotate_heatmap(im, valfmt="{x:.1f}")
 
 fig.tight_layout()

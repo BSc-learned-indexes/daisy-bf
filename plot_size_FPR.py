@@ -1,8 +1,6 @@
 import pandas as pd 
 import argparse
 import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
-import numpy as np
 from datetime import datetime
 from progress.bar import Bar
 import warnings
@@ -25,7 +23,6 @@ bar = Bar('Plotting distributions   ', max=len(names))
 for name in names: 
     data = pd.read_csv(f'./data/plots/{name}')
 
-    # Define plots 
     # Plot distribution of Keys
     bar.next()
     x = data["size"]

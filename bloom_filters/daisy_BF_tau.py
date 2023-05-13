@@ -28,6 +28,9 @@ def init_args():
     parser.add_argument('--Q_dist', action="store", dest="Q_dist", type=bool, required=False, default=False, help="uses q_dist for daisy")
     return parser.parse_args()
 
+TAU = 1
+PX_MAX = 1
+
 def load_data():
     if (USE_Q_DIST):
         splitted = DATA_PATH.split(".csv")
@@ -36,7 +39,7 @@ def load_data():
         data_path = DATA_PATH
 
     data = pd.read_csv(data_path)
-    set_px(data, NORMALIZE_SCORES)
+    PX_MAX = set_px(data, NORMALIZE_SCORES)
     set_qx(data, CONST_QX, USE_Q_DIST)
     positive_sample = data.loc[(data['label']==1)]
     negative_sample = data.loc[(data['label']==-1)]
@@ -47,15 +50,18 @@ def load_data():
     print(f"sum(px*qx): {total}, n: {len(positive_sample)}")
     print(f"sum(px*qx) <= F/n, when F=0.0001: {total} <= {0.0001/len(positive_sample)}")
     print(f"|u|/n = {len(data)/len(positive_sample)} >= F") 
-    return data, positive_sample, negative_sample
+
+    return data, positive_sample, negative_sample, PX_MAX
 
 def set_px(data, normalize):
     if normalize:
         score_sum = data["score"].sum()
         print(f"normalizing the scores by dividing with score sum: {score_sum}")
         data["px"] = data["score"].div(score_sum)
+        return 1/score_sum
     else: 
         data["px"] = data["score"]
+        return 1
 
 def set_qx(data, const_qx, Q_dist):
     if const_qx and not Q_dist:
@@ -70,28 +76,25 @@ def set_qx(data, const_qx, Q_dist):
         print(f"sum of qx is: {data['qx'].sum()}")
 
 def k_hash(F, px, qx, n):
-    if qx <= F * px or px > (1 / n): 
+    if TAU <= F * px or px > (1 / n):
         k_x = 0
-    elif F * px < qx and qx <= min(px, (F/n)):
-        k_x = math.log((1/F)*(qx/px), 2)
-    elif qx > px and (F/n) >= px:
+    elif F * px < TAU and TAU <= px:
+        k_x = math.log((1/F)*(TAU/px), 2)
+    elif TAU > px:
         k_x = math.log(1/F, 2)
-    elif qx > (F/n) and ((F/n) < px and px <= 1/n):
-        k_x = math.log(1/(n*px), 2)
-    else: 
+    else:
         raise Exception(f"k could not be calculated from the value: \n n: {n} \n F: {F} \n px {px} \n qx {qx}")
 
     return math.ceil(k_x)
 
 def lower_bound(positive_data, negative_data, F, n):
     total = 0
-
-    # get px * k for keys
+    # get px*kx for all keys
     for row in positive_data.itertuples(index=False):
         k = k_hash(F, row.px, row.qx, n)
         total += row.px * k
 
-    # get px * k for non-keys
+    # get px*kx for all non-keys
     for row in negative_data.itertuples(index=False):
         k = k_hash(F, row.px, row.qx, n)
         total += row.px * k
@@ -121,7 +124,7 @@ class Daisy_BloomFilter():
         for _ in range(max_hash_functions):
             hash_functions.append(hashfunc(self.m))
         return hash_functions
-
+    
     def insert(self, key, px, qx):
         k_x = k_hash(self.F, px, qx, self.n)
         if k_x == 0:
@@ -188,11 +191,10 @@ if __name__ == '__main__':
     PRECISION = args.precision
     MAX_ITERATIONS = args.max_iter
     WITHIN_TEN_PCT = args.within_ten_pct
-    TAU = args.tau
     NORMALIZE_SCORES = args.normalize
     USE_Q_DIST = args.Q_dist
 
-    data, positive_data, negative_data = load_data()
+    data, positive_data, negative_data, PX_MAX = load_data()
 
     mem_result = []
     FPR_result = []
@@ -207,59 +209,101 @@ if __name__ == '__main__':
     
     FPR_targets = []
     tmp = 0.5
-    while tmp > 10**(-12):
+    while tmp > 10**(-8):
         FPR_targets.append(tmp)
         tmp /= 2
     print(f"false positive targets: {FPR_targets}")
 
     for f_i in FPR_targets:
-        f_i = f_i / 6
-        print(f"Target FPR: {f_i}")
-        n = len(positive_data)
+        # f_i = f_i / 6
+        best_size = None
+        closest_FPR = None
+        zero_hash_pct = None
+        num_bits_set = None
+        best_fp_bloom = None
+        best_lookup_dict = None
+        best_k_insert_dict = None
+        best_tau = None
+        best_size = None
+        closest_FPR = None
+        closest_t = None
 
-        # Calculate size for Daisy
-        filter_size = size(positive_data, negative_data, f_i, n)
-        print(f"size: {filter_size}")
+        L = 0
+        R = PX_MAX # We set the max threshold to be the max of px
+        TAU = (R + L) / 2
+        
+        i = 0
+        while MAX_ITERATIONS > i:
+            TAU = (R + L) / 2
 
-        # Insert keys
-        daisy = Daisy_BloomFilter(n, filter_size, f_i)
-        k_insert_dict = daisy.populate(positive_data)
-        bits_set = daisy.arr.sum()
-        print(f"sum of 1-bits in the array: {bits_set}")
-        print(f"fraction of 1-bits in the array: {bits_set / len(daisy.arr)}")
+            print(f"TAU: {TAU}")
+            print(f"Target FPR: {f_i}")
+            print(f"iter: {i}")
+            print(f"max_i: {MAX_ITERATIONS}")
 
-        # Test Daisy
-        actual_FPR, FPR_from_zero_k, k_lookup_dict, fp_bloom = daisy.get_actual_FPR(negative_data, USE_Q_DIST)
-        print(f"actual_FPR: {actual_FPR}")
+            # Calculate size for Daisy
+            n = len(positive_data)
+            filter_size = size(positive_data, negative_data, f_i, n)
+            print(f"size: {filter_size}")
 
-        bloom_FP.append(fp_bloom)
-        model_FP.append(k_lookup_dict[0])
-        FPR_result.append(actual_FPR)
-        mem_result.append(filter_size)
-        pct_from_zero_hash_func.append(FPR_from_zero_k)
-        bits_set_arr.append(bits_set)
-        pct_bits_set_arr.append(bits_set/filter_size)
+            # Insert keys
+            daisy = Daisy_BloomFilter(n, filter_size, f_i)
+            k_insert_dict = daisy.populate(positive_data)
+            bits_set = daisy.arr.sum()
+            print(f"sum of 1-bits in the array: {bits_set}")
+            print(f"fraction of 1-bits in the array: {bits_set / len(daisy.arr)}")
 
-        k_insert_dict["FPR_target"] = f_i
-        k_insert_dict["FPR_actual"] = actual_FPR
-        k_insert_dict["size"] = filter_size
-        insert_k_arr.append(k_insert_dict)
+            # Get actual FPR
+            actual_FPR, FPR_from_zero_k, k_lookup_dict, fp_bloom = daisy.get_actual_FPR(negative_data, USE_Q_DIST)
+            print(f"actual_FPR: {actual_FPR}")
 
-        k_lookup_dict["FPR_target"] = f_i
-        k_lookup_dict["FPR_actual"] = actual_FPR
-        k_lookup_dict["size"] = filter_size
-        lookup_k_arr.append(k_lookup_dict)
+            # record if the actual FPR is closest to the target FPR
+            if closest_FPR is None or (abs(closest_FPR - f_i)) > (abs(actual_FPR - f_i)):
+                closest_FPR = actual_FPR
+                best_size = filter_size
+                zero_hash_pct = FPR_from_zero_k
+                num_bits_set = bits_set 
+                best_fp_bloom = fp_bloom
+                best_lookup_dict = k_lookup_dict
+                best_k_insert_dict = k_insert_dict
+                best_tau = TAU
+
+            # Adjust tau according to the actual FPR
+            if actual_FPR < f_i:
+                R = TAU
+            else:
+                L = TAU
+            i += 1
+
+        bloom_FP.append(best_fp_bloom)
+        model_FP.append(best_lookup_dict[0])
+        FPR_result.append(closest_FPR)
+        mem_result.append(best_size)
+        pct_from_zero_hash_func.append(zero_hash_pct)
+        bits_set_arr.append(num_bits_set)
+        pct_bits_set_arr.append(num_bits_set/filter_size)
+        threshold_values.append(best_tau)
+
+        best_k_insert_dict["FPR_target"] = f_i
+        best_k_insert_dict["FPR_actual"] = closest_FPR
+        best_k_insert_dict["size"] = best_size
+        insert_k_arr.append(best_k_insert_dict)
+
+        best_lookup_dict["FPR_target"] = f_i
+        best_lookup_dict["FPR_actual"] = closest_FPR
+        best_lookup_dict["size"] = best_size
+        lookup_k_arr.append(best_lookup_dict)
 
     print(f"size_arr: {mem_result}")
     print(f"FPR_targets: {FPR_targets}")
     print(f"FPR_result: {FPR_result}")
 
-    output = {"size": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr, "model_FP": model_FP, "bloom_FP": bloom_FP}
+    output = {"size": mem_result, "false_positive_rating": FPR_result, "false_positive_target": FPR_targets, "FPR_from_zero_k": pct_from_zero_hash_func, "bits_set": bits_set_arr, "pct_ones": pct_bits_set_arr, "model_FP": model_FP, "bloom_FP": bloom_FP, "tau_val": threshold_values}
     df_out = pd.DataFrame.from_dict(data=output)
-    df_out.to_csv(f"{args.out_path}/daisy-BF.csv")
+    df_out.to_csv(f"{args.out_path}/daisy-BF_tau.csv")
 
     df_insert = pd.DataFrame.from_dict(data=insert_k_arr)
-    df_insert.to_csv(f"{args.out_path}/daisy-BF_k_insert.csv")
+    df_insert.to_csv(f"{args.out_path}/daisy-BF_tau_k_insert.csv")
 
     df_lookup = pd.DataFrame.from_dict(data=lookup_k_arr)
-    df_lookup.to_csv(f"{args.out_path}/daisy-BF_k_lookup.csv")
+    df_lookup.to_csv(f"{args.out_path}/daisy-BF_tau_k_lookup.csv")

@@ -13,69 +13,47 @@ from progress.bar import Bar
 # Progress bar
 bar = Bar('Creating model           ', max=5)
 
-
 # Arguments 
 parser = argparse.ArgumentParser()
-
 parser.add_argument("--file_name", action="store", dest="file_name", type=str, required=False,
                     help="which dataset?", default = "url_data_vectorized")
-
 parser.add_argument("--data_path", action="store", dest="data_path", type=str, required=False,
                     help="path to vectorized data-set", default = "./data/vectorized")
 parser.add_argument("--model_type", action="store", dest="model_type", type=str, required=False,
                     help="model_type", default = "random_forest")
-
 parser.add_argument("--train_split", action="store", dest="train_split", type=float, required=False,
                     help="split of training data", default = 0.3)
-
 parser.add_argument("--rfc_max_dept", action="store", dest="rfc_max_dept", type=int, required=False,
                     help="split of training data", default = None)
-
 parser.add_argument("--rfc_n_estimators", action="store", dest="rfc_n_estimators", type=int, required=False,
                     help="split of training data", default = 100)
-
 args = parser.parse_args()
 
 # Path
-
 path = f"{args.data_path}/{args.file_name}.csv"
-
 data = pd.read_csv(path)
 
 bar.next()
 
-
-
 # -------------------------------------
 # Split data into train and test set
 # -------------------------------------
-
-# Predictor Variables
-x = data[['hostname_length',
-    'path_length', 'fd_length', 'tld_length', 'count-', 'count@', 'count?',
-    'count%', 'count.', 'count=', 'count-http','count-https', 'count-www', 'count-digits',
-    'count-letters', 'count_dir', 'use_of_ip']]
-
-# Target Variable
-y = data['result']
 
 keys = data[data.label == "malicious"]
 non_keys = data[data.label == "benign"]
 non_keys = non_keys.sample(n=len(keys), random_state=42)
 
 model_data = pd.concat([keys, non_keys])
+# input vector
 x = model_data[['hostname_length',
     'path_length', 'fd_length', 'tld_length', 'count-', 'count@', 'count?',
     'count%', 'count.', 'count=', 'count-http','count-https', 'count-www', 'count-digits',
     'count-letters', 'count_dir', 'use_of_ip']]
+# label
 y = model_data['result']
-
-
 
 # Splitting the data into Training and Testing
 x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=args.train_split, random_state=42)
-
-
 
 # -------------------------------------
 # Model type 1: Random forest classifier
@@ -152,12 +130,8 @@ x = data[['hostname_length',
        'path_length', 'fd_length', 'tld_length', 'count-', 'count@', 'count?',
        'count%', 'count.', 'count=', 'count-http','count-https', 'count-www', 'count-digits',
        'count-letters', 'count_dir', 'use_of_ip']]
-
 x_predictions = model.predict_proba(x)
-
-
 x_predictions_df = pd.DataFrame(x_predictions, columns=["benign_score", "malicious_score"])
-
 
 export = data[["url"]].copy()
 export["label"] = data["result"]
@@ -167,14 +141,13 @@ export.to_csv('./data/scores/exported_urls.csv', index=False)
 
 bar.next()
 
-
 #Export pickled model
-pickle.dump(model, open('./models/model.pickle', 'wb')) # consider joblib
+pickle.dump(model, open('./models/model.pickle', 'wb'))
 bar.next()
 
 # Export model metadata
 # f1, accuracy, confusion_matrix, size 
-model_size = os.path.getsize('./models/model.pickle') * 8 
+model_size = os.path.getsize('./models/model.pickle') * 8 # convert to bits
 
 model_metadata = {
     "f1": model_f1,
@@ -185,7 +158,6 @@ model_metadata = {
     "confusion_matrix_1_1": model_confusion_matrix[1,1],
     "size_bits": model_size
 }
-
 
 confusion_plot = ConfusionMatrixDisplay(model_confusion_matrix)
 

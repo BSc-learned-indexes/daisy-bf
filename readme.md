@@ -12,7 +12,7 @@ This project has been created as part of a Bachelor project at IT-University of 
 Two different data sets are provided. 
 
 #### URL data set 
-A data set containing labeled 450,176 URLs. 345,738 beneign and 104,438 malicous. The data set is provided in `/data/raw/url_data`. [Source of data](https://www.kaggle.com/code/siddharthkumar25/detect-malicious-url-using-ml).
+A data set containing labeled 450,176 URLs. 345,738 beneign and 104,438 malicous. The data set is provided in `/data/raw/url_data` [(source)](https://www.kaggle.com/code/siddharthkumar25/detect-malicious-url-using-ml).
 
 To vectorize the URL data run: 
 
@@ -54,6 +54,50 @@ pip install -r requirements.txt
 
 ## Usage 📈
 
+### Benchmarking the Bloom Filters 
+We have provided a template to run a benchmarking experiment with the following settings:
+- Large Random Forest Classifier as model
+- 1 - px as the query distribution
+- URL data set 
+- Full key set 
+
+A series of `make` commands are provided to build the filters:
+
+#### Build Adaptive Learned Bloom Filter 
+```
+make adabf 
+```
+
+#### Build Partitioned Learned Bloom Filter 
+```
+make plbf 
+```
+
+#### Build Daisy Bloom Filter 
+```
+make daisy 
+```
+
+#### Build all Bloom Filters 
+Note: this command takes a while 🐌
+```
+make all 
+```
+
+#### Plot all Bloom Filters
+```
+make plot_all 
+```
+
+#### Plot all the Learned Bloom Filters (excludes the regular Bloom Filter)
+```
+make plot_learned_bf
+```
+
+
+## Extra 🤓
+
+The directory `/experiments` contains all the data that is presented in the Bachelor's thesis's Experiments section. Here is a link to the thesis for the interested.
 
 
 

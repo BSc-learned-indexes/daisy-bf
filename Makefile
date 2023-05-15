@@ -43,7 +43,7 @@ heatmaps:
 	@python3 create_kx_heatmaps.py --file_name daisy-BF_tau_k_insert --is_daisy True
 	@python3 create_kx_heatmaps.py --file_name daisy-BF_tau_k_lookup --is_daisy True
 
-build_all:
+all:
 	@python3 bloom_filters/Bloom_filter.py --data_path ./experiments/url/rfc_good/qx_inv_px/full_keyset/exported_urls_qx_inv_px_full_keyset.csv --min_size 12500 --max_size 26000 --step 1000 --Q_dist True
 	@python3 bloom_filters/daisy_BF.py --data_path ./experiments/url/rfc_good/qx_inv_px/full_keyset/exported_urls_qx_inv_px_full_keyset.csv --fpr_data_path ./data/plots/Ada-BF.csv --model_path ./models/model.pickle --tau False --max_iter 30 --normalize True --Q_dist True
 	@python3 bloom_filters/daisy_BF_tau.py --data_path ./experiments/url/rfc_good/qx_inv_px/full_keyset/exported_urls_qx_inv_px_full_keyset.csv --fpr_data_path ./data/plots/Ada-BF.csv --model_path ./models/model.pickle --tau False --max_iter 13 --normalize True

@@ -94,10 +94,14 @@ make plot_all
 make plot_learned_bf
 ```
 
+## Example output 🖼️
+Example: 0.1% key to non-key ratio, query distribution: qx = 1 - px, model: Large Random Forest Classifier
+![github_img_new](https://github.com/BSc-learned-indexes/daisy-bf/assets/38140018/2f608c96-1e61-4d0a-a295-3e40870db52f)
+
 
 ## Extra 🤓
-
-The directory `/experiments` contains all the data that is presented in the Bachelor's thesis's Experiments section. Here is a link to the thesis for the interested.
+- The directory `/experiments` contains all the data that is presented in the Bachelor's thesis's Experiments section. 
+- The thesis can be read in `/thesis`.
 
 
 
